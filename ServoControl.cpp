@@ -82,3 +82,11 @@ byte ServoControl::getEndPos()
   return _endPos;
 }
 
+
+void ServoControl::goHome()
+{
+  //TODO read servo position and goto start gracefully
+  byte currentPos = _servo.read();
+  move(currentPos, _startPos, 3, 15);
+}
+

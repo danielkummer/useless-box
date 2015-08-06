@@ -11,6 +11,7 @@ class Moves
   public: 
     Moves(ServoControl* doorServo, ServoControl* handServo, ServoControl* flagServo, Distance* distance, MotorControl* motor, boolean randomize);
     void next();
+    void goHome();
     void switchOff();
     void pauseBetween();
     void crazyDoor();

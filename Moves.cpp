@@ -54,6 +54,13 @@ byte Moves::selectNextMove() {
 }
 
 
+void Moves::goHome()
+{
+  //TODO read the current servo positions and return home gracefully
+  _handServo->goHome();
+  _doorServo->goHome();
+}
+
 
 void Moves::switchOff()
 {

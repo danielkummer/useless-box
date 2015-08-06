@@ -26,6 +26,7 @@ class ServoControl
     void setTo(byte position);    
     void move(byte from, byte to, int interval, int pause);
     byte getEndPos();
+    void goHome();
   private:
     Servo _servo;
     byte _startPos;
