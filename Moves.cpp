@@ -24,7 +24,13 @@ Moves::Moves(ServoControl* doorServo, ServoControl* handServo, ServoControl* fla
 
 void Moves::next()
 {
-  Serial.println("Doing move no. " + _selectedMove);  
+
+  //debug!!!
+  _selectedMove = 0;
+  
+  Serial.print("Doing move no. ");
+  Serial.print(_selectedMove);
+  Serial.println("");    
   switch(_selectedMove) {
     case 1: pauseBetween(); break;
     case 2: crazyDoor(); break;

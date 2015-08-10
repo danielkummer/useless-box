@@ -7,12 +7,14 @@ ServoControl::ServoControl(byte pin,  byte startPos, byte endPos, byte pausePos)
   _pausePos = pausePos;
   
   _defaultInterval = 3;
-  _defaultSpeed = 15;
+  _defaultSpeed = 30;
 
   //just to be on the safe side...
   _customPos = _startPos;
   
   _servo.attach(pin);
+  Serial.print("Start position ");
+  Serial.println(_startPos);
   _servo.write(_startPos);   
 }
 
@@ -57,18 +59,44 @@ void ServoControl::move(Direction direction, int interval, int speed)
 
 void ServoControl::move(byte from, byte to, int interval, int speed) 
 {
-  byte pos = 0;
+  Serial.print("Move from ");
+  Serial.print(from);
+  Serial.print(" to ");
+  Serial.print(to);  
+  Serial.println("");
+
+// Check the last command we gave to the servo
+  int current_degree = _servo.read();
+  //last_write = current_degree;
+
+  while (current_degree != to) {
+    if (current_degree < to) {
+      current_degree++;
+    }
+    else {
+      current_degree--;
+    }
+
+    _servo.write(current_degree);
+    delay(speed);    
+  }
+  
+  /*byte pos = 0;
   if(from > to) {
     for(pos = from; pos >= to; pos -= interval) {
+      Serial.print("Write: ");
+      Serial.println(pos);
       _servo.write(pos);
       delay(speed);
     }      
   } else {
     for(pos = from; pos < to; pos += interval) {
+      Serial.print("Write: ");
+      Serial.println(pos);
       _servo.write(pos);
       delay(speed);
     }
-  }  
+  } */ 
 }
 
 void ServoControl::setTo(byte position)
