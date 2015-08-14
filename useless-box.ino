@@ -36,7 +36,7 @@
 // the delay between the arm hitting the switcha and the switch reporting a change in value 
 #define MECANIC_DELAY_SWITCH 50 // 50 msec to acknowledge a hit
 
-const int arm_servo_pin = 8;
+const int arm_servo_pin = 9;
 const int door_servo_pin = 6;
 const int flag_servo_pin = 5;
 
