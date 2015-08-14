@@ -1,17 +1,20 @@
-#include "Distance.h"
+#if defined(ARDUINO) && ARDUINO >= 100
+#include "Arduino.h"
+#else
+#include "WProgram.h"
+#endif
+#include "Distance.h" 
 
+Distance::Distance() {}
 
-Distance::Distance(byte pin)
-{
-  Distance(pin, 200);
+void Distance::attach(int pin, int threshold) {
+  this->pin = pin;
+  this->threshold = threshold;
 }
 
-Distance::Distance(byte pin, int threshold)
-{
-  _pin = pin;
-  _threshold = threshold;   
+void Distance::attach(int pin) {
+  attach(pin, 200);
 }
-
 
 boolean Distance::detect()
 {
@@ -21,18 +24,18 @@ boolean Distance::detect()
 
      // set the timer and read the sensor
      
-     _lastDistance= analogRead(_pin);
-     _timer= millis();
+     lastDistance= analogRead(pin);
+     timer= millis();
 
      // wait for movement that exceeds threshold or if timer expires (5 sec),
-     while(millis() - _timer <= 5000) {
-        currentDistance = analogRead(_pin);
+     while(millis() - timer <= 5000) {
+        currentDistance = analogRead(pin);
 
         //Does the current distance deviate from the last distance by more than the threshold?        
-        if ((currentDistance > _lastDistance + _threshold || currentDistance < _lastDistance - _threshold) || currentDistance > 300) {
+        if ((currentDistance > lastDistance + threshold || currentDistance < lastDistance - threshold) || currentDistance > 300) {
           return true;
         }
-        _lastDistance = currentDistance;
+        lastDistance = currentDistance;
      }
      return false;           
 }

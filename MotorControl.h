@@ -1,18 +1,19 @@
 #ifndef MotorControl_h
 #define MotorControl_h
 
-#include "Arduino.h"
+#include <inttypes.h>
 
 class MotorControl
 {
   public: 
-    MotorControl(byte directionPin, byte throttlePin);
+    MotorControl();
+    void attach(int directionPin, int throttlePin);
     void forward(int speed);
     void backward(int speed);
-    void halt();
-  private:
-    byte _directionPin;
-    byte _throttlePin;         
+    void halt();   
+  protected:
+    uint8_t directionPin;
+    uint8_t throttlePin;         
 };
 
 #endif

@@ -1,120 +1,95 @@
-#include "ServoControl.h"
+#if defined(ARDUINO) && ARDUINO >= 100
+#include "Arduino.h"
+#else
+#include "WProgram.h"
+#endif
+#include "ServoControl.h" 
 
-ServoControl::ServoControl(byte pin,  byte startPos, byte endPos, byte pausePos) 
-{
-  _startPos = startPos;
-  _endPos = endPos;
-  _pausePos = pausePos;
+#define MECANIC_SPEED_PER_DEGREE 2 // 2 msec to move 1 degree #define MECANIC_SPEED_PER_DEGREE 2 // 2 msec to move 1 degree
+
+ServoControl::ServoControl() {
+  this->current_speed = 0;
+  this->pos_home = 15; //set the home position to 15 deg, just an arbitary value, must be set in the attack method
+  this->servo = Servo();
+}
+
+void ServoControl::attach(Bounce* bouncer, int pin, int pos_home) {  
+  this->pin = pin;
+  this->pos_home = pos_home;
+  this->bouncer = bouncer;  
+  this->servo.attach(pin);  
+}
+
+bool ServoControl::move(int degree, int speed) {
+  this->current_speed = speed;
+  return move(degree);
+}
+
+bool ServoControl::move(int degree) {
+
+  bool interrupted = false;
   
-  _defaultInterval = 3;
-  _defaultSpeed = 30;
-
-  //just to be on the safe side...
-  _customPos = _startPos;
+  Serial.print("Moving servo to position : ");
+  Serial.print(degree);
+  Serial.println("deg.");
   
-  _servo.attach(pin);
-  Serial.print("Start position ");
-  Serial.println(_startPos);
-  _servo.write(_startPos);   
-}
+  
+  bouncer->update();
+  int first_switch_value = bouncer->read();
 
-void ServoControl::move(Direction direction) 
-{
-  move(direction, _defaultInterval, _defaultInterval);
-}
+  // Check the last command we gave to the servo
+  int current_degree = servo.read();
+  last_write = current_degree;
 
-void ServoControl::move(Direction direction, int interval, int speed) 
-{
-  switch(direction) {
-    case START_END:
-      move(_startPos, _endPos, interval, speed);
-      break;
-    case START_PAUSE:
-      move(_startPos, _pausePos, interval, speed);  
-      break;        
-    case END_START:
-      move(_endPos, _startPos, interval, speed);
-      break;
-    case END_PAUSE:
-      move(_endPos, _pausePos, interval, speed);
-      break;
-    case PAUSE_START:  
-      move(_pausePos, _startPos, interval, speed);
-      break;
-    case PAUSE_END:
-      move(_pausePos, _endPos, interval, speed);
-      break;
-    case CUSTOM_START:
-      move(_customPos, _startPos, interval, speed);
-      break;
-    case CUSTOM_END:
-      move(_customPos, _endPos, interval, speed);
-      break;
-    default: 
-      Serial.println("unknown direction");
-    break;  
-  } 
-}
-
-
-void ServoControl::move(byte from, byte to, int interval, int speed) 
-{
-  Serial.print("Move from ");
-  Serial.print(from);
-  Serial.print(" to ");
-  Serial.print(to);  
-  Serial.println("");
-
-// Check the last command we gave to the servo
-  int current_degree = _servo.read();
-  //last_write = current_degree;
-
-  while (current_degree != to) {
-    if (current_degree < to) {
+  // And then moves ! degree by degree, checking the switch position each time
+  while (current_degree != degree) {
+    if (current_degree < degree) {
       current_degree++;
     }
     else {
       current_degree--;
     }
 
-    _servo.write(current_degree);
-    delay(speed);    
-  }
-  
-  /*byte pos = 0;
-  if(from > to) {
-    for(pos = from; pos >= to; pos -= interval) {
-      Serial.print("Write: ");
-      Serial.println(pos);
-      _servo.write(pos);
-      delay(speed);
-    }      
-  } else {
-    for(pos = from; pos < to; pos += interval) {
-      Serial.print("Write: ");
-      Serial.println(pos);
-      _servo.write(pos);
-      delay(speed);
+    servo.write(current_degree);
+    delay(MECANIC_SPEED_PER_DEGREE + this->current_speed);
+
+    // Read switch again in loop so we can react if something changes
+    bouncer->update();
+    int current_value = bouncer->read();
+    if (current_value != first_switch_value) {
+      Serial.println("/!\\ Interrupted - The switch was operated while I was moving !");
+      interrupted = true;
+      break;
     }
-  } */ 
+  }
+
+  return interrupted;
 }
 
-void ServoControl::setTo(byte position)
-{ 
-  _customPos = position;
-  _servo.write(position);
+uint8_t ServoControl::getLastWrite() {
+  return this->last_write;  
 }
 
-byte ServoControl::getEndPos()
-{
-  return _endPos;
+void ServoControl::waitAndDetatch() {
+  if (this->servo.read() == pos_home && this->is_home == false) {
+    Serial.println("Powering off the arm servo ...");
+    int time_to_wait = abs(this->last_write-pos_home)*(this->current_speed + MECANIC_SPEED_PER_DEGREE);
+    delay(time_to_wait);
+    this->is_home = true;
+    servo.detach();
+  }
+
 }
 
+bool ServoControl::isHome() {
+  return this->is_home;
+}
 
-void ServoControl::goHome()
-{
-  //TODO read servo position and goto start gracefully
-  byte currentPos = _servo.read();
-  move(currentPos, _startPos, 3, 15);
+void ServoControl::isHome(bool home) {
+  this->is_home = home;
+}
+
+void ServoControl::reattach() {
+  servo.attach(pin);
 }
 
