@@ -9,7 +9,7 @@
 class ServoControl
 {
   public: 
-    ServoControl();
+    ServoControl(char name[]);
     bool move(int degree);
     bool move(int degree, int speed);
     void attach(Bounce* bouncer, int pin, int pos_home);    
@@ -26,6 +26,7 @@ class ServoControl
     uint8_t current_speed;
     bool is_home;
     uint8_t pin;
+    char* name;
 };
 
 #endif

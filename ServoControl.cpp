@@ -7,7 +7,8 @@
 
 #define MECANIC_SPEED_PER_DEGREE 2 // 2 msec to move 1 degree #define MECANIC_SPEED_PER_DEGREE 2 // 2 msec to move 1 degree
 
-ServoControl::ServoControl() {
+ServoControl::ServoControl(char name[]) {
+  this->name = name;
   this->current_speed = 0;
   this->pos_home = 15; //set the home position to 15 deg, just an arbitary value, must be set in the attack method
   this->servo = Servo();
@@ -17,7 +18,9 @@ void ServoControl::attach(Bounce* bouncer, int pin, int pos_home) {
   this->pin = pin;
   this->pos_home = pos_home;
   this->bouncer = bouncer;  
-  this->servo.attach(pin);  
+  this->servo.write(pos_home);
+  this->servo.attach(pin);
+    
 }
 
 bool ServoControl::move(int degree, int speed) {
@@ -29,7 +32,9 @@ bool ServoControl::move(int degree) {
 
   bool interrupted = false;
   
-  Serial.print("Moving servo to position : ");
+  Serial.print("Moving ");
+  Serial.print(this->name);
+  Serial.print("to position : ");
   Serial.print(degree);
   Serial.println("deg.");
   
@@ -57,6 +62,8 @@ bool ServoControl::move(int degree) {
     bouncer->update();
     int current_value = bouncer->read();
     if (current_value != first_switch_value) {
+      Serial.print(this->name);
+      Serial.print(" : ");
       Serial.println("/!\\ Interrupted - The switch was operated while I was moving !");
       interrupted = true;
       break;
@@ -72,7 +79,9 @@ uint8_t ServoControl::getLastWrite() {
 
 void ServoControl::waitAndDetatch() {
   if (this->servo.read() == pos_home && this->is_home == false) {
-    Serial.println("Powering off the arm servo ...");
+    Serial.print("Powering off the");  
+    Serial.print(this->name);
+    Serial.println(    "servo ...");
     int time_to_wait = abs(this->last_write-pos_home)*(this->current_speed + MECANIC_SPEED_PER_DEGREE);
     delay(time_to_wait);
     this->is_home = true;
