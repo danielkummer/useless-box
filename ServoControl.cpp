@@ -79,9 +79,9 @@ uint8_t ServoControl::getLastWrite() {
 
 void ServoControl::waitAndDetatch() {
   if (this->servo.read() == pos_home && this->is_home == false) {
-    Serial.print("Powering off the");  
+    Serial.print("Powering off the ");  
     Serial.print(this->name);
-    Serial.println(    "servo ...");
+    Serial.println(" servo ...");
     int time_to_wait = abs(this->last_write-pos_home)*(this->current_speed + MECANIC_SPEED_PER_DEGREE);
     delay(time_to_wait);
     this->is_home = true;
