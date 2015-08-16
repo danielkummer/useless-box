@@ -25,6 +25,7 @@ class ServoControl
     uint8_t pos_home;
     uint8_t current_speed;
     bool is_home;
+    bool interruptable;
     uint8_t pin;
     char* name;
 };

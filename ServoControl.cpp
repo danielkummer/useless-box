@@ -61,11 +61,13 @@ bool ServoControl::move(int degree) {
     // Read switch again in loop so we can react if something changes
     bouncer->update();
     int current_value = bouncer->read();
-    if (current_value != first_switch_value) {
+    if (current_value != first_switch_value && this->name) {
+      if(strcmp(this->name, "arm") != 0 ) {
       Serial.print(this->name);
       Serial.print(" : ");
       Serial.println("/!\\ Interrupted - The switch was operated while I was moving !");
       interrupted = true;
+      }
       break;
     }
   }
@@ -79,7 +81,7 @@ uint8_t ServoControl::getLastWrite() {
 
 void ServoControl::waitAndDetatch() {
   if (this->servo.read() == pos_home && this->is_home == false) {
-    Serial.print("Powering off the ");  
+    Serial.print("Powering off the" );  
     Serial.print(this->name);
     Serial.println(" servo ...");
     int time_to_wait = abs(this->last_write-pos_home)*(this->current_speed + MECANIC_SPEED_PER_DEGREE);
