@@ -5,23 +5,20 @@
 #include "Distance.h"
 #include "ServoControl.h"
 
-#define NUM_BEHAVIOURS 13
-
 /*
  * Servo positions
  */ 
 #define MIN_ARM_DEG 35
 #define MAX_ARM_DEG 165
-#define POS_HOME_ARM MIN_ARM_DEG
+#define POS_ARM_HOME MIN_ARM_DEG
 #define POS_SWITCH_ARM MAX_ARM_DEG
 #define POS_ARM_PEEK (MIN_ARM_DEG + 70)
 #define POS_ARM_CHECK_NINJA (MIN_ARM_DEG + 20)
 #define POS_ARM_NEAR_SWITCH (MAX_ARM_DEG - 50)
-//(MIN_ARM_DEG + 40)
 
 #define MIN_DOOR_DEG 100
 #define MAX_DOOR_DEG 40
-#define POS_HOME_DOOR MIN_DOOR_DEG
+#define POS_DOOR_HOME MIN_DOOR_DEG
 #define POS_DOOR_MEDIUM_OPEN (MIN_DOOR_DEG - 97)
 #define POS_DOOR_FULL_OPEN MAX_DOOR_DEG
 #define POS_DOOR_CHECK_NINJA (MIN_DOOR_DEG - 80)
@@ -37,10 +34,13 @@
 // the delay between the arm hitting the switcha and the switch reporting a change in value 
 #define MECANIC_DELAY_SWITCH 50 // 50 msec to acknowledge a hit
 
-#define IMPATIENT_INTERVAL_THRESHOLD 5
-#define MAX_IMPATIENT_ACTION_COUNT 5
+#define IMPATIENT_INTERVAL_THRESHOLD 5  //times the interval must be triggered before impatient mode is activated
+#define IMPATIENT_INTERVAL_TIME 15000
+#define NUM_MAX_IMPATIENT_ACTION 5      //number of impatient actions - while the box stays in impatient mode
 
+#define NUM_BEHAVIOURS 13
 
+// Pins
 const int arm_servo_pin = 9;
 const int door_servo_pin = 6;
 const int flag_servo_pin = 5;
@@ -50,25 +50,26 @@ const int throttle_pin = 11;
 
 const int distance_pin = A1;
 
-const int box_switch  = 2;
+const int box_switch_pin  = 2;
+
+
 Bounce bouncer = Bounce();
 int activated = LOW;
 
-int randBehaviour = 1;  // This is used to choose the next behaviour 
-long randCheck = 1;     // Random check when not activated
-boolean hasAlreadyChecked = true;
-boolean interrupted = false; // Is set to true when the switch has been changed while doing something. Allows for a quick check in the loop() for what we should do next
+int randBehaviour = 1;            // This is used to choose the next behaviour 
+long randCheck = 1;               // Random check when not activated
+boolean hasAlreadyChecked = true; // Set when box has checked the switch (peeked at it)
+boolean interrupted = false;      // Is set to true when the switch has been changed while doing something. Allows for a quick check in the loop() for what we should do next
 
-int lastDistance = 0;
-int threshold = 200;
-unsigned long timer;
+int lastDistance = 0;             // Last measured distance
+int threshold = 200;              // Distance threshold
+unsigned long timer;              // Distance timer
 
-//impatient mode variables
-int impatientCount = 0; //how many times was I impatient
-int impatientThresholdCount = 0; //how may times was the switch operated in short intervals
-boolean impatient = false;  //is the box impatient
-unsigned long activatedTimestamp; //when was the box last activated
-
+// Impatient mode variables
+int impatientCount = 0;           // How many impatient actions were done
+int impatientThresholdCount = 0;  // How may times was the switch operated in short intervals
+boolean impatient = false;        // is the box impatient
+unsigned long activatedTimestamp; // When was the box last activated
 
 MotorControl motor = MotorControl();
 Distance distance = Distance();
@@ -78,7 +79,7 @@ ServoControl flag = ServoControl("flag");
 
 
 void setup() {  
-  pinMode(box_switch, INPUT);
+  pinMode(box_switch_pin, INPUT);
   pinMode(direction_pin, OUTPUT);  
   pinMode(distance_pin,INPUT);
   
@@ -86,16 +87,14 @@ void setup() {
   Serial.println("Started."); 
   Serial.println("Initializing positions.");
 
-  bouncer.attach(box_switch);
+  bouncer.attach(box_switch_pin);
   motor.attach(direction_pin, throttle_pin);
   distance.attach(2);
-  arm.attach(&bouncer, arm_servo_pin, POS_HOME_ARM);
-  door.attach(&bouncer, door_servo_pin, POS_HOME_DOOR);
+  arm.attach(&bouncer, arm_servo_pin, POS_ARM_HOME);
+  door.attach(&bouncer, door_servo_pin, POS_DOOR_HOME);
   flag.attach(&bouncer, flag_servo_pin, POS_flag_HIDDEN);
-
-  
-   
-  Serial.println("Initializing random number . different behaviour every start."); 
+ 
+  Serial.println("Initializing random seed."); 
   randomSeed(analogRead(0));      
 }
 // A "soft" delay function
@@ -199,7 +198,7 @@ void openDoorFull(int msec = 0) {
 
 // Ok, back home now
 void backHome() { 
-  int homePosArm = impatient ? POS_ARM_PEEK : POS_HOME_ARM;
+  int homePosArm = impatient ? POS_ARM_PEEK : POS_ARM_HOME;
   arm.move(homePosArm, 0); 
 }
 
@@ -209,7 +208,7 @@ void goCheck(int msec = 10) {
 }
 
 void closeDoor(int msec = 0) {
-  int homePos = impatient ? POS_DOOR_MEDIUM_OPEN : POS_HOME_DOOR;  
+  int homePos = impatient ? POS_DOOR_MEDIUM_OPEN : POS_DOOR_HOME;  
   interrupted = door.move(homePos, msec);
   delay(MECANIC_DELAY_SWITCH);
 }
@@ -419,56 +418,39 @@ void loop() {
   bouncer.update();
   activated = bouncer.read();
 
-  //reset impatient mode after 5 times;
-  if(impatient && impatientCount >= MAX_IMPATIENT_ACTION_COUNT) {
-    Serial.println("Reset impatient mode");
+  //reset impatient mode after NUM_MAX_IMPATIENT_ACTION times;
+  if(impatient && impatientCount >= NUM_MAX_IMPATIENT_ACTION) { 
+    Serial.println("Getting tired, leaving impatient mode...");
     impatient = false;
     impatientCount = 0;
     arm.reattach();
     door.reattach();
     impatientThresholdCount = 0;    
-    door.setHome(POS_HOME_DOOR);
+    door.setHome(POS_DOOR_HOME);
     door.isHome(false);
-    arm.setHome(POS_HOME_ARM);    
+    arm.setHome(POS_ARM_HOME);    
     arm.isHome(false);
   }  
   
-  if (flag.isHome() == false) {
-
-    // If we're not home yet, we shall go there !
+  if (flag.isHome() == false) {    
     Serial.println("Hiding flag");
-    hideflag();
-        
-  } else if (arm.isHome() == false) {
-
-    // If we're not home yet, we shall go there !
+    hideflag();        
+  } else if (arm.isHome() == false) {    
     Serial.println("Going back home");
-    backHome();
-        
+    backHome();        
   } else if (door.isHome() == false) {
-
-    // If we're not home yet, we shall go there !
     Serial.println("Closing door");
-    closeDoor();
-     
-  } else if (randCheck < 5 && hasAlreadyChecked == false) {      
-      // We only check once after an activation
-      hasAlreadyChecked = true;
-
-      arm.isHome(false);
-      //is_arm_home = false;      
-      
-      Serial.println("Random check, baby. ");      
-      
-      arm.reattach();
-      door.reattach();      
-      
-      if (!interrupted) goCheck(5);
-      if (!interrupted) softDelay(1000);      
+    closeDoor();     
+  } else if (randCheck < 5 && hasAlreadyChecked == false) {            
+    hasAlreadyChecked = true;
+    arm.isHome(false);         
+    Serial.println("Random check, baby. ");            
+    arm.reattach();
+    door.reattach();            
+    if (!interrupted) goCheck(5);
+    if (!interrupted) softDelay(1000);      
   }  else if (activated == HIGH) {
-
     Serial.println("Who turned me on?");
-
     arm.isHome(false);
     door.isHome(false);
     
@@ -477,21 +459,23 @@ void loop() {
     flag.reattach();
        
     // Find a new behaviour for next time
-    int newBehaviour = random(1, NUM_BEHAVIOURS);
-    while ( newBehaviour == randBehaviour ) {
-      newBehaviour = random(1, NUM_BEHAVIOURS);      
+    if(!impatient) {         
+      int newBehaviour;
+      do {
+        newBehaviour = random(1, NUM_BEHAVIOURS);      
+      } while (!newBehaviour == randBehaviour );
+      randBehaviour = newBehaviour;    
     }
-    randBehaviour = newBehaviour;    
 
     if(impatient) {
       Serial.print("I'm impatient right now - for the "); 
       randBehaviour = 1; //trigger default behaviour
       impatientCount++;
       Serial.print(impatientCount);
-      Serial.println(" time");
+      Serial.println(" time!");
     }
-    //increase impatient trigger count if box is operated repeatedly in interval (10 sec)
-    if (!impatient && (millis() - activatedTimestamp <= 15000)) {      
+    //increase impatient trigger count if box is operated repeatedly in interval
+    if (!impatient && (millis() - activatedTimestamp <= IMPATIENT_INTERVAL_TIME)) {      
       impatientThresholdCount++;
       Serial.print("Getting impatient... ");
       Serial.print(impatientThresholdCount);
@@ -501,22 +485,23 @@ void loop() {
       Serial.println(millis() - activatedTimestamp);
     }
     if (!impatient && impatientThresholdCount >= IMPATIENT_INTERVAL_THRESHOLD ) {
-      Serial.println("----IMPATIENT MODE START-----");
+      Serial.println("Alright, thats it! I'm getting impatient!");
       impatient = true;     
       arm.setHome(POS_ARM_PEEK);      
-      door.setHome(POS_DOOR_MEDIUM_OPEN);      
-      
+      door.setHome(POS_DOOR_MEDIUM_OPEN);            
       delay(100);
     }
 
+    //use specific moves in impatient mode 
     if (impatient) {
+      //define "special" moves
       switch(impatientCount) {
-        case MAX_IMPATIENT_ACTION_COUNT - 2:
+        case NUM_MAX_IMPATIENT_ACTION - 2:
           randBehaviour = 9; break;
           break;
-        case MAX_IMPATIENT_ACTION_COUNT - 1: 
+        case NUM_MAX_IMPATIENT_ACTION - 1: 
           randBehaviour = 101; break;
-        case MAX_IMPATIENT_ACTION_COUNT:
+        case NUM_MAX_IMPATIENT_ACTION:
           randBehaviour = 100; break;
           break;
         default:
@@ -568,22 +553,18 @@ void loop() {
         Serial.println("Vibrating");      
         vibrating(); break;  
       case 101:
-        Serial.println("Flapping around");
+        Serial.println("Flapping door around");
         flappingAround(); break;      
       default: 
         Serial.println("Default");
         goFlipThatSwitch(); break;   
       } 
       interrupted = false; 
-      hasAlreadyChecked = false;
-      
+      hasAlreadyChecked = false;      
       activatedTimestamp = millis();
   } 
   arm.waitAndDetatch();
   door.waitAndDetatch();
-  flag.waitAndDetatch();
-  // Random number to check sometimes
-  randCheck = random(1, 1000000);
-   
-
+  flag.waitAndDetatch();  
+  randCheck = random(1, 100000);  
 }
