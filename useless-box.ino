@@ -30,29 +30,26 @@
 #define POS_flag_TILTED (MAX_flag_DEG - 40)
 
 // the number of msec (approx.) for the servo to go one degree further
-#define MECANIC_SPEED_PER_DEGREE 2 // 2 msec to move 1 degree
+#define MECANIC_SPEED_PER_DEGREE 2  // 2 msec to move 1 degree
 // the delay between the arm hitting the switcha and the switch reporting a change in value 
-#define MECANIC_DELAY_SWITCH 50 // 50 msec to acknowledge a hit
+#define MECANIC_DELAY_SWITCH 50     // 50 msec to acknowledge a hit
 
 #define IMPATIENT_INTERVAL_THRESHOLD 5  //times the interval must be triggered before impatient mode is activated
 #define IMPATIENT_INTERVAL_TIME 15000
 #define NUM_MAX_IMPATIENT_ACTION 5      //number of impatient actions - while the box stays in impatient mode
 
-#define NUM_BEHAVIOURS 13
+#define NUM_BEHAVIOURS 14
 
 // Pins
-const int arm_servo_pin = 9;
-const int door_servo_pin = 6;
-const int flag_servo_pin = 5;
+const int armServoPin = 9;
+const int doorServoPin = 6;
+const int flagServoPin = 5;
+const int directionPin = 13;
+const int throttlePin = 11;
+const int distancePin = A1;
+const int boxSwitchPin  = 2;
 
-const int direction_pin = 13;
-const int throttle_pin = 11;
-
-const int distance_pin = A1;
-
-const int box_switch_pin  = 2;
-
-
+// Operation variables
 Bounce bouncer = Bounce();
 int activated = LOW;
 
@@ -79,86 +76,69 @@ ServoControl flag = ServoControl("flag");
 
 
 void setup() {  
-  pinMode(box_switch_pin, INPUT);
-  pinMode(direction_pin, OUTPUT);  
-  pinMode(distance_pin,INPUT);
+  pinMode(boxSwitchPin, INPUT);
+  pinMode(directionPin, OUTPUT);  
+  pinMode(distancePin,INPUT);
   
   Serial.begin(9600);
   Serial.println("Started."); 
   Serial.println("Initializing positions.");
 
-  bouncer.attach(box_switch_pin);
-  motor.attach(direction_pin, throttle_pin);
+  bouncer.attach(boxSwitchPin);
+  motor.attach(directionPin, throttlePin);
   distance.attach(2);
-  arm.attach(&bouncer, arm_servo_pin, POS_ARM_HOME);
-  door.attach(&bouncer, door_servo_pin, POS_DOOR_HOME);
-  flag.attach(&bouncer, flag_servo_pin, POS_flag_HIDDEN);
+  arm.attach(&bouncer, armServoPin, POS_ARM_HOME);
+  door.attach(&bouncer, doorServoPin, POS_DOOR_HOME);
+  flag.attach(&bouncer, flagServoPin, POS_flag_HIDDEN);
  
   Serial.println("Initializing random seed."); 
   randomSeed(analogRead(0));      
 }
-// A "soft" delay function
-// (This function can be interrupted by manual switch change)
+// A "soft" delay function - This function can be interrupted by manual switch change
 void softDelay(int msec) {
-
   Serial.print("Delaying for ");
   Serial.print(msec);
-  Serial.println(" msec...");
-  
-  // Update the switch value.
+  Serial.println(" msec..."); 
   bouncer.update();
   int val = bouncer.read();
-
-  // Inits a counters
-  long time_counter = 0;
-
-  // And wait... msec by msec, checking the switch position each time
+  long time_counter = 0;  
   do {
     delay(1);
     time_counter++;
-
     bouncer.update();
     int current_value = bouncer.read();
-
     if (current_value != val) {
-     Serial.println("/!\\[Soft Delay] Interrupted - The switch was operated while I was waiting on purpose !");
+      Serial.println("/!\\[Soft Delay] Interrupted - The switch was operated while I was waiting on purpose !");
       interrupted = true;
       break;
     }
-  } 
-  while(time_counter <= msec);
-
+  } while(time_counter <= msec);
 }
 
 boolean detect() {
   int currentDistance;
-  
-    delay(1200);    //wait to stabilize sensor readings after opening the door
-
-     // set the timer and read the sensor
-     
-     lastDistance = analogRead(distance_pin);
-     timer = millis();
-     
-     // wait for movement that exceeds threshold or if timer expires (5 sec),
-     while(millis() - timer <= 5000) {
-        currentDistance = analogRead(distance_pin);
-       Serial.print("currentDistance:" );
-        Serial.print(currentDistance);
-        Serial.print(" lastDistance: ");
-        Serial.println(lastDistance);
-        delay(500);
-        //Does the current distance deviate from the last distance by more than the threshold?        
-        if ((currentDistance > lastDistance + threshold || currentDistance < lastDistance - threshold)) {
-          Serial.print("Detected! currentDistance:" );
-          Serial.print(currentDistance);
-          Serial.print(" lastDistance: ");
-          Serial.println(lastDistance);
-          return true;
-        }
-        lastDistance = currentDistance;
-     }
-     return false;           
+  delay(1200);    //wait to stabilize sensor readings after opening the door 
+  lastDistance = analogRead(distancePin);
+  timer = millis();
+  // wait for movement that exceeds threshold or if timer expires (5 sec),
+  while(millis() - timer <= 5000) {
+    currentDistance = analogRead(distancePin);
+    Serial.print("currentDistance:" );
+    Serial.print(currentDistance);
+    Serial.print(" lastDistance: ");
+    Serial.println(lastDistance);
+    delay(500);
+    //Does the current distance deviate from the last distance by more than the threshold?        
+    if ((currentDistance > lastDistance + threshold || currentDistance < lastDistance - threshold)) {
+      Serial.print("Detected! currentDistance:" );
+      Serial.print(currentDistance);
+      Serial.print(" lastDistance: ");
+      Serial.println(lastDistance);
+      return true;
+    }
+    lastDistance = currentDistance;
+  }
+  return false;
 }
 
 
@@ -245,20 +225,17 @@ void waveflag(int times)
  * interruptable methods - use these in switch statement
  */
 
-
 // Go out and flip that switch the user just
 void goFlipThatSwitch(int msec = 0) { 
   if (!interrupted) openDoorMedium(msec);
   if (!interrupted) flipSwitch(msec);
 }
 
- 
 void driveAway()
 {
   if (!interrupted) openDoorMedium();
   if (!interrupted) motor.forward(100);
-  delay(2000);
-  
+  delay(2000);  
   /*if(!interrupted && detect()) {
     Serial.println("Detected movement!");
     if (!interrupted) motor.forward(100);
@@ -268,7 +245,6 @@ void driveAway()
   if (!interrupted) motor.halt();
   if (!interrupted) goFlipThatSwitch();  
 }
-
 
 void whiteflag() 
 {
@@ -280,9 +256,6 @@ void whiteflag()
   if (!interrupted) goFlipThatSwitch();   
 }
 
-
-
-
 // Check once, wait, then flip the switch
 void check() {
   if (!interrupted) openDoorMedium();
@@ -290,7 +263,6 @@ void check() {
   if (!interrupted) softDelay(1000);
   if (!interrupted) goFlipThatSwitch();
 }
-
 
 // Check, return back home, then flip
 void checkReturn() {
@@ -301,7 +273,6 @@ void checkReturn() {
   if (!interrupted) softDelay(800);
   if (!interrupted) goFlipThatSwitch();
 }
-
 
 // Multi tries. At the end, succeeds...
 void multiTry() {
@@ -407,10 +378,26 @@ void vibrating() {
   if (!interrupted) goFlipThatSwitch();  
 }
 
-void adjustDistance() {
-if(detect()) {
-    waveflag(7);
-  }    
+void moveBackAndForth() {
+  
+  if (!interrupted) motor.forward(100);
+  if (!interrupted) softDelay(500); 
+  if (!interrupted) motor.backward(100);
+  if (!interrupted) softDelay(500); 
+  if (!interrupted) motor.forward(100);  
+  if (!interrupted) softDelay(200); 
+  if (!interrupted) motor.backward(100);
+  if (!interrupted) softDelay(200); 
+  /*if(!interrupted && detect()) {
+    Serial.println("Detected movement!");
+    if (!interrupted) motor.forward(100);
+    if (!interrupted) softDelay(300);
+    if (!interrupted) motor.halt();
+  }*/  
+  if (!interrupted) motor.halt();
+  if (!interrupted) openDoorNija();
+  if (!interrupted) goStealthCheck();
+  if (!interrupted) goFlipThatSwitch();  
 }
 
 void loop() {
@@ -547,8 +534,11 @@ void loop() {
         Serial.println("Drive away");
         driveAway(); break;
       case 12:
-      Serial.println("White flag");
-      whiteflag(); break;    
+        Serial.println("White flag");
+        whiteflag(); break;   
+      case 13:
+        Serial.println("Back and Forth");
+        moveBackAndForth(); break;
       case 100:
         Serial.println("Vibrating");      
         vibrating(); break;  

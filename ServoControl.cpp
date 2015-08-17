@@ -62,16 +62,16 @@ bool ServoControl::move(int degree) {
     bouncer->update();
     int current_value = bouncer->read();
     if (current_value != first_switch_value) {
+      //a bit unlucky but i can't really rely on the arm switch of position, so I'm going for a "soft" trigger here
       if (strcmp(this->name, "arm") != 0 || current_degree < 160) {
         Serial.print(this->name);
         Serial.print(" : ");
         Serial.println("/!\\ Interrupted - The switch was operated while I was moving !");
         interrupted = true;
-      }
-      break;
+        break;
+      }      
     }
   }
-
   return interrupted;
 }
 
