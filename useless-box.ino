@@ -212,22 +212,22 @@ void tiltflag(int msec = 0) {
 }
 
 void hideflag(int msec = 0) {
-  interrupted = flag.move(POS_flag_HIDDEN, msec);
+  interrupted = flag.move(POS_flag_HIDDEN, msec);  
   delay(MECANIC_DELAY_SWITCH);
 }
 
 void waveflag(int times)
 {
   byte i;
-  raiseflag();  
-  softDelay(100);
+  if (!interrupted) raiseflag();  
+  if (!interrupted) softDelay(100);
   for (i = 0; i < times; i++) {    
-    tiltflag();
-    softDelay(50);
-    raiseflag();
+    if (!interrupted) tiltflag();
+    if (!interrupted) softDelay(50);
+    if (!interrupted) raiseflag();
   }
-  softDelay(100);
-  hideflag();
+  if (!interrupted) softDelay(100);
+  if (!interrupted) hideflag();
 }
 
 /**
@@ -262,17 +262,11 @@ void driveAway()
 void whiteflag() 
 {
   //is_flag_home = false;
-  flag.isHome(false);
-  
+  flag.isHome(false);  
   if (!interrupted) openDoorFull();
   if (!interrupted) waveflag(7);
-
-  if (!interrupted) goFlipThatSwitch();
-  if (!interrupted) softDelay(2000);
-  //if(!interrupted && detect()) {
-  //if (!interrupted) waveflag(7);
-  //}
-  hideflag();  
+  if (!interrupted) softDelay(500);
+  if (!interrupted) goFlipThatSwitch();   
 }
 
 
@@ -391,7 +385,13 @@ void loop() {
   bouncer.update();
   activated = bouncer.read();
   
-  if (arm.isHome() == false) {
+   if (flag.isHome() == false) {
+
+    // If we're not home yet, we shall go there !
+    Serial.println("Hiding flag");
+    hideflag();
+        
+  } else if (arm.isHome() == false) {
 
     // If we're not home yet, we shall go there !
     Serial.println("Going back home");
@@ -402,12 +402,6 @@ void loop() {
     // If we're not home yet, we shall go there !
     Serial.println("Closing door");
     closeDoor();
-        
-  } else if (flag.isHome() == false) {
-
-    // If we're not home yet, we shall go there !
-    Serial.println("Hiding flag");
-    hideflag();
         
   }  else if (randCheck < 5 && hasAlreadyChecked == false) {      
       // We only check once after an activation
@@ -439,7 +433,7 @@ void loop() {
     while ( newBehaviour == randBehaviour ) {
       newBehaviour = random(1, NUM_BEHAVIOURS);      
     }
-    randBehaviour = newBehaviour;
+    randBehaviour = newBehaviour;    
     
     Serial.print("Starting behaviour: [");
     Serial.print(randBehaviour);
