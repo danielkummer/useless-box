@@ -93,11 +93,15 @@ void ServoControl::waitAndDetatch() {
 }
 
 bool ServoControl::isHome() {
-  return this->is_home;
+  return this->is_home;  
 }
 
 void ServoControl::isHome(bool home) {
   this->is_home = home;
+}
+
+void ServoControl::setHome(int pos_home) {  
+  this->pos_home = pos_home;
 }
 
 void ServoControl::reattach() {

@@ -17,6 +17,7 @@ class ServoControl
     void reattach();
     uint8_t getLastWrite();    
     bool isHome();
+    void setHome(int pos_home);
     void isHome(bool home);
   protected:
     Bounce* bouncer;

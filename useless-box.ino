@@ -5,7 +5,7 @@
 #include "Distance.h"
 #include "ServoControl.h"
 
-#define NUM_BEHAVIOURS 14
+#define NUM_BEHAVIOURS 13
 
 /*
  * Servo positions
@@ -37,6 +37,10 @@
 // the delay between the arm hitting the switcha and the switch reporting a change in value 
 #define MECANIC_DELAY_SWITCH 50 // 50 msec to acknowledge a hit
 
+#define IMPATIENT_INTERVAL_THRESHOLD 5
+#define MAX_IMPATIENT_ACTION_COUNT 5
+
+
 const int arm_servo_pin = 9;
 const int door_servo_pin = 6;
 const int flag_servo_pin = 5;
@@ -58,6 +62,13 @@ boolean interrupted = false; // Is set to true when the switch has been changed 
 int lastDistance = 0;
 int threshold = 200;
 unsigned long timer;
+
+//impatient mode variables
+int impatientCount = 0; //how many times was I impatient
+int impatientThresholdCount = 0; //how may times was the switch operated in short intervals
+boolean impatient = false;  //is the box impatient
+unsigned long activatedTimestamp; //when was the box last activated
+
 
 MotorControl motor = MotorControl();
 Distance distance = Distance();
@@ -85,8 +96,7 @@ void setup() {
   
    
   Serial.println("Initializing random number . different behaviour every start."); 
-  randomSeed(analogRead(0));  
-  
+  randomSeed(analogRead(0));      
 }
 // A "soft" delay function
 // (This function can be interrupted by manual switch change)
@@ -112,7 +122,7 @@ void softDelay(int msec) {
     int current_value = bouncer.read();
 
     if (current_value != val) {
-     Serial.println("/!\\Soft Delay Interrupted - The switch was operated while I was waiting on purpose !");
+     Serial.println("/!\\[Soft Delay] Interrupted - The switch was operated while I was waiting on purpose !");
       interrupted = true;
       break;
     }
@@ -134,11 +144,11 @@ boolean detect() {
      // wait for movement that exceeds threshold or if timer expires (5 sec),
      while(millis() - timer <= 5000) {
         currentDistance = analogRead(distance_pin);
-             Serial.print("currentDistance:" );
-              Serial.print(currentDistance);
-              Serial.print(" lastDistance: ");
-              Serial.println(lastDistance);
-              delay(500);
+       Serial.print("currentDistance:" );
+        Serial.print(currentDistance);
+        Serial.print(" lastDistance: ");
+        Serial.println(lastDistance);
+        delay(500);
         //Does the current distance deviate from the last distance by more than the threshold?        
         if ((currentDistance > lastDistance + threshold || currentDistance < lastDistance - threshold)) {
           Serial.print("Detected! currentDistance:" );
@@ -189,7 +199,8 @@ void openDoorFull(int msec = 0) {
 
 // Ok, back home now
 void backHome() { 
-  arm.move(POS_HOME_ARM, 0); 
+  int homePosArm = impatient ? POS_ARM_PEEK : POS_HOME_ARM;
+  arm.move(homePosArm, 0); 
 }
 
 // Open the lid to see out
@@ -198,7 +209,8 @@ void goCheck(int msec = 10) {
 }
 
 void closeDoor(int msec = 0) {
-  interrupted = door.move(POS_HOME_DOOR, msec);
+  int homePos = impatient ? POS_DOOR_MEDIUM_OPEN : POS_HOME_DOOR;  
+  interrupted = door.move(homePos, msec);
   delay(MECANIC_DELAY_SWITCH);
 }
 void raiseflag(int msec = 0) {
@@ -374,6 +386,28 @@ void crazySlow() { //ok
   if (!interrupted) goFlipThatSwitch(30);  
 }
 
+void flappingAround() {
+  if (!interrupted) openDoorMedium(7);
+  if (!interrupted) closeDoor();  
+  if (!interrupted) openDoorMedium(7);      
+  if (!interrupted) closeDoor();  
+  if (!interrupted) openDoorMedium(7);      
+  if (!interrupted) goFlipThatSwitch();  
+}
+
+void vibrating() {
+  if (!interrupted) openDoorMedium();
+  if (!interrupted) tryFail(0);  
+  if (!interrupted) tryFail(0);
+  if (!interrupted) tryFail(0);
+  if (!interrupted) tryFail(0);
+  if (!interrupted) tryFail(0);
+  if (!interrupted) tryFail(0);
+  if (!interrupted) tryFail(0);
+  if (!interrupted) backHome();
+  if (!interrupted) goFlipThatSwitch();  
+}
+
 void adjustDistance() {
 if(detect()) {
     waveflag(7);
@@ -384,8 +418,22 @@ void loop() {
   // Update the switch position
   bouncer.update();
   activated = bouncer.read();
+
+  //reset impatient mode after 5 times;
+  if(impatient && impatientCount >= MAX_IMPATIENT_ACTION_COUNT) {
+    Serial.println("Reset impatient mode");
+    impatient = false;
+    impatientCount = 0;
+    arm.reattach();
+    door.reattach();
+    impatientThresholdCount = 0;    
+    door.setHome(POS_HOME_DOOR);
+    door.isHome(false);
+    arm.setHome(POS_HOME_ARM);    
+    arm.isHome(false);
+  }  
   
-   if (flag.isHome() == false) {
+  if (flag.isHome() == false) {
 
     // If we're not home yet, we shall go there !
     Serial.println("Hiding flag");
@@ -402,8 +450,8 @@ void loop() {
     // If we're not home yet, we shall go there !
     Serial.println("Closing door");
     closeDoor();
-        
-  }  else if (randCheck < 5 && hasAlreadyChecked == false) {      
+     
+  } else if (randCheck < 5 && hasAlreadyChecked == false) {      
       // We only check once after an activation
       hasAlreadyChecked = true;
 
@@ -417,7 +465,7 @@ void loop() {
       
       if (!interrupted) goCheck(5);
       if (!interrupted) softDelay(1000);      
-  } else if (activated == HIGH) {
+  }  else if (activated == HIGH) {
 
     Serial.println("Who turned me on?");
 
@@ -434,6 +482,47 @@ void loop() {
       newBehaviour = random(1, NUM_BEHAVIOURS);      
     }
     randBehaviour = newBehaviour;    
+
+    if(impatient) {
+      Serial.print("I'm impatient right now - for the "); 
+      randBehaviour = 1; //trigger default behaviour
+      impatientCount++;
+      Serial.print(impatientCount);
+      Serial.println(" time");
+    }
+    //increase impatient trigger count if box is operated repeatedly in interval (10 sec)
+    if (!impatient && (millis() - activatedTimestamp <= 15000)) {      
+      impatientThresholdCount++;
+      Serial.print("Getting impatient... ");
+      Serial.print(impatientThresholdCount);
+      Serial.print(" of ");
+      Serial.println(IMPATIENT_INTERVAL_THRESHOLD);
+      Serial.print("Time difference is: ");
+      Serial.println(millis() - activatedTimestamp);
+    }
+    if (!impatient && impatientThresholdCount >= IMPATIENT_INTERVAL_THRESHOLD ) {
+      Serial.println("----IMPATIENT MODE START-----");
+      impatient = true;     
+      arm.setHome(POS_ARM_PEEK);      
+      door.setHome(POS_DOOR_MEDIUM_OPEN);      
+      
+      delay(100);
+    }
+
+    if (impatient) {
+      switch(impatientCount) {
+        case MAX_IMPATIENT_ACTION_COUNT - 2:
+          randBehaviour = 9; break;
+          break;
+        case MAX_IMPATIENT_ACTION_COUNT - 1: 
+          randBehaviour = 101; break;
+        case MAX_IMPATIENT_ACTION_COUNT:
+          randBehaviour = 100; break;
+          break;
+        default:
+          randBehaviour = 1;  
+      }      
+    }
     
     Serial.print("Starting behaviour: [");
     Serial.print(randBehaviour);
@@ -462,30 +551,39 @@ void loop() {
         ohWait(); break;
       case 8: 
         Serial.println("Crazy slow");
-        crazySlow(); break;  
-      case 9:
-        Serial.println("White flag");
-        whiteflag(); break;
-      case 10: 
+        crazySlow(); break;        
+      case 9: 
         Serial.println("Matrix");
         matrix(); break;
-      case 11: 
+      case 10: 
         Serial.println("Crazy door");
         crazyDoor(); break;
-      case 12: 
+      case 11: 
         Serial.println("Drive away");
-        driveAway(); break;        
+        driveAway(); break;
+      case 12:
+      Serial.println("White flag");
+      whiteflag(); break;    
+      case 100:
+        Serial.println("Vibrating");      
+        vibrating(); break;  
+      case 101:
+        Serial.println("Flapping around");
+        flappingAround(); break;      
       default: 
         Serial.println("Default");
         goFlipThatSwitch(); break;   
       } 
-      interrupted = false; // Now that I have finished, I can rest.
-      hasAlreadyChecked = false; // We can check once after that  
+      interrupted = false; 
+      hasAlreadyChecked = false;
+      
+      activatedTimestamp = millis();
   } 
   arm.waitAndDetatch();
   door.waitAndDetatch();
   flag.waitAndDetatch();
   // Random number to check sometimes
   randCheck = random(1, 1000000);
+   
 
 }
