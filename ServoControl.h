@@ -13,6 +13,7 @@ class ServoControl
     bool move(int degree);
     bool move(int degree, int speed);
     void attach(Bounce* bouncer, int pin, int pos_home);    
+    void interruptable(bool interruptable);
     void waitAndDetatch();
     void reattach();
     uint8_t getLastWrite();    
@@ -26,7 +27,7 @@ class ServoControl
     uint8_t pos_home;
     uint8_t current_speed;
     bool is_home;
-    bool interruptable;
+    bool is_interruptable;
     uint8_t pin;
     char* name;
 };

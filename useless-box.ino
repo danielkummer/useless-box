@@ -17,17 +17,17 @@
 #define POS_ARM_NEAR_SWITCH (MAX_ARM_DEG - 50)
 
 #define MIN_DOOR_DEG 100
-#define MAX_DOOR_DEG 40
+#define MAX_DOOR_DEG 35
 #define POS_DOOR_HOME MIN_DOOR_DEG
-#define POS_DOOR_MEDIUM_OPEN (MIN_DOOR_DEG - 97)
+#define POS_DOOR_MEDIUM_OPEN (MIN_DOOR_DEG - 50)
 #define POS_DOOR_FULL_OPEN MAX_DOOR_DEG
 #define POS_DOOR_CHECK_NINJA (MIN_DOOR_DEG - 80)
 
-#define MIN_flag_DEG 60
-#define MAX_flag_DEG 160
-#define POS_flag_HIDDEN MIN_flag_DEG
-#define POS_flag_RAISED MAX_flag_DEG
-#define POS_flag_TILTED (MAX_flag_DEG - 40)
+#define MIN_FLAG_DEG 60
+#define MAX_FLAG_DEG 160
+#define POS_flag_HIDDEN MIN_FLAG_DEG
+#define POS_flag_RAISED MAX_FLAG_DEG
+#define POS_flag_TILTED (MAX_FLAG_DEG - 40)
 
 // the number of msec (approx.) for the servo to go one degree further
 #define MECANIC_SPEED_PER_DEGREE 2  // 2 msec to move 1 degree
@@ -36,9 +36,9 @@
 
 #define IMPATIENT_INTERVAL_THRESHOLD 5  //times the interval must be triggered before impatient mode is activated
 #define IMPATIENT_INTERVAL_TIME 15000
-#define NUM_MAX_IMPATIENT_ACTION 5      //number of impatient actions - while the box stays in impatient mode
+#define NUM_MAX_IMPATIENT_ACTION 7      //number of impatient actions - while the box stays in impatient mode
 
-#define NUM_BEHAVIOURS 14
+#define NUM_BEHAVIOURS 13
 
 // Pins
 const int armServoPin = 9;
@@ -192,6 +192,8 @@ void closeDoor(int msec = 0) {
   interrupted = door.move(homePos, msec);
   delay(MECANIC_DELAY_SWITCH);
 }
+
+
 void raiseflag(int msec = 0) {
   interrupted = flag.move(POS_flag_RAISED, msec);
   delay(MECANIC_DELAY_SWITCH);
@@ -213,12 +215,12 @@ void waveflag(int times)
   if (!interrupted) raiseflag();  
   if (!interrupted) softDelay(100);
   for (i = 0; i < times; i++) {    
-    if (!interrupted) tiltflag();
-    if (!interrupted) softDelay(50);
-    if (!interrupted) raiseflag();
+    tiltflag();
+    softDelay(30);
+    raiseflag();
   }
-  if (!interrupted) softDelay(100);
-  if (!interrupted) hideflag();
+  softDelay(100);
+  hideflag();
 }
 
 /**
@@ -235,14 +237,14 @@ void driveAway()
 {
   if (!interrupted) openDoorMedium();
   if (!interrupted) motor.forward(100);
-  delay(2000);  
+  softDelay(2000);  
   /*if(!interrupted && detect()) {
     Serial.println("Detected movement!");
     if (!interrupted) motor.forward(100);
     if (!interrupted) softDelay(300);
     if (!interrupted) motor.halt();
   }*/  
-  if (!interrupted) motor.halt();
+  motor.halt();
   if (!interrupted) goFlipThatSwitch();  
 }
 
@@ -334,9 +336,7 @@ void matrix() {
   if (!interrupted) openDoorMedium();
   if (!interrupted) goCheck();  
   if (!interrupted) flipSwitch(30);
-  if (!interrupted) softDelay(300);
-  if (!interrupted) backHome();
-  if (!interrupted) closeDoor();  
+  if (!interrupted) softDelay(300);  
 }
 
 void crazyDoor() {
@@ -344,12 +344,10 @@ void crazyDoor() {
   if (!interrupted) closeDoor();
   if (!interrupted) softDelay(700);
   if (!interrupted) openDoorFull();    
-  if (!interrupted) softDelay(700);  
+  if (!interrupted) softDelay(500);  
   if (!interrupted) closeDoor();  
   if (!interrupted) openDoorFull();      
-  if (!interrupted) goFlipThatSwitch(15);
-  if (!interrupted) backHome(); 
-  if (!interrupted) closeDoor();
+  if (!interrupted) goFlipThatSwitch(15);  
 }
 
 void crazySlow() { //ok  
@@ -357,12 +355,13 @@ void crazySlow() { //ok
 }
 
 void flappingAround() {
-  if (!interrupted) openDoorMedium(7);
-  if (!interrupted) closeDoor();  
-  if (!interrupted) openDoorMedium(7);      
-  if (!interrupted) closeDoor();  
-  if (!interrupted) openDoorMedium(7);      
-  if (!interrupted) goFlipThatSwitch();  
+  int i;
+  for(i = 0; i < 5; i++) {
+    if (!interrupted) openDoorFull(15);
+    if (!interrupted) closeDoor();    
+    if (!interrupted) softDelay(400);         
+  }
+  if (!interrupted) goFlipThatSwitch();   
 }
 
 void vibrating() {
@@ -381,23 +380,38 @@ void vibrating() {
 void moveBackAndForth() {
   
   if (!interrupted) motor.forward(100);
-  if (!interrupted) softDelay(500); 
+  if (!interrupted) softDelay(600); 
   if (!interrupted) motor.backward(100);
-  if (!interrupted) softDelay(500); 
+  if (!interrupted) softDelay(600); 
   if (!interrupted) motor.forward(100);  
-  if (!interrupted) softDelay(200); 
+  if (!interrupted) softDelay(600); 
   if (!interrupted) motor.backward(100);
-  if (!interrupted) softDelay(200); 
+  if (!interrupted) softDelay(600); 
   /*if(!interrupted && detect()) {
     Serial.println("Detected movement!");
     if (!interrupted) motor.forward(100);
     if (!interrupted) softDelay(300);
     if (!interrupted) motor.halt();
   }*/  
-  if (!interrupted) motor.halt();
+  motor.halt();
   if (!interrupted) openDoorNija();
   if (!interrupted) goStealthCheck();
   if (!interrupted) goFlipThatSwitch();  
+}
+
+void angryTurnOff() {
+  arm.interruptable(false);
+  goFlipThatSwitch();  
+  backHome();
+  goFlipThatSwitch();  
+  backHome();
+  goFlipThatSwitch();
+  arm.move(POS_ARM_HOME, 0);
+  arm.interruptable(true);
+  if (!interrupted) softDelay(300);
+  flag.isHome(false);  
+  if (!interrupted) openDoorFull();
+  if (!interrupted) waveflag(7);  
 }
 
 void loop() {
@@ -483,18 +497,18 @@ void loop() {
     if (impatient) {
       //define "special" moves
       switch(impatientCount) {
-        case NUM_MAX_IMPATIENT_ACTION - 2:
+        case NUM_MAX_IMPATIENT_ACTION - 3:
           randBehaviour = 9; break;
-          break;
-        case NUM_MAX_IMPATIENT_ACTION - 1: 
+        case NUM_MAX_IMPATIENT_ACTION - 2:
           randBehaviour = 101; break;
-        case NUM_MAX_IMPATIENT_ACTION:
+        case NUM_MAX_IMPATIENT_ACTION - 1: 
           randBehaviour = 100; break;
-          break;
+        case NUM_MAX_IMPATIENT_ACTION:
+          randBehaviour = 102; break;
         default:
           randBehaviour = 1;  
       }      
-    }
+    }     
     
     Serial.print("Starting behaviour: [");
     Serial.print(randBehaviour);
@@ -533,10 +547,11 @@ void loop() {
       case 11: 
         Serial.println("Drive away");
         driveAway(); break;
+      //should i really include this in the normal operaion mode? it's a special gimick
+      //case 12:
+      //  Serial.println("White flag");
+      //  whiteflag(); break;         
       case 12:
-        Serial.println("White flag");
-        whiteflag(); break;   
-      case 13:
         Serial.println("Back and Forth");
         moveBackAndForth(); break;
       case 100:
@@ -545,6 +560,9 @@ void loop() {
       case 101:
         Serial.println("Flapping door around");
         flappingAround(); break;      
+      case 102:
+        Serial.println("Angry turn-off");
+        angryTurnOff(); break;
       default: 
         Serial.println("Default");
         goFlipThatSwitch(); break;   

@@ -5,13 +5,14 @@
 #endif
 #include "ServoControl.h"
 
-#define MECANIC_SPEED_PER_DEGREE 2 // 2 msec to move 1 degree #define MECANIC_SPEED_PER_DEGREE 2 // 2 msec to move 1 degree
+#define MECANIC_SPEED_PER_DEGREE 5 // 2 msec to move 1 degree #define MECANIC_SPEED_PER_DEGREE 2 // 2 msec to move 1 degree
 
 ServoControl::ServoControl(char name[]) {
   this->name = name;
   this->current_speed = 0;
   this->pos_home = 15; //set the home position to 15 deg, just an arbitary value, must be set in the attack method
   this->servo = Servo();
+  this->is_interruptable = true;
 }
 
 void ServoControl::attach(Bounce* bouncer, int pin, int pos_home) {
@@ -21,6 +22,10 @@ void ServoControl::attach(Bounce* bouncer, int pin, int pos_home) {
   this->servo.write(pos_home);
   this->servo.attach(pin);
 
+}
+
+void ServoControl::interruptable(bool interruptable) {
+  this->is_interruptable = interruptable;
 }
 
 bool ServoControl::move(int degree, int speed) {
@@ -61,7 +66,7 @@ bool ServoControl::move(int degree) {
     // Read switch again in loop so we can react if something changes
     bouncer->update();
     int current_value = bouncer->read();
-    if (current_value != first_switch_value) {
+    if (this->is_interruptable && current_value != first_switch_value) {
       //a bit unlucky but i can't really rely on the arm switch of position, so I'm going for a "soft" trigger here
       if (strcmp(this->name, "arm") != 0 || current_degree < 160) {
         Serial.print(this->name);
