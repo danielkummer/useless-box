@@ -16,12 +16,13 @@
 #define POS_ARM_CHECK_NINJA (MIN_ARM_DEG + 20)
 #define POS_ARM_NEAR_SWITCH (MAX_ARM_DEG - 50)
 
-#define MIN_DOOR_DEG 100
+#define MIN_DOOR_DEG 90
 #define MAX_DOOR_DEG 35
 #define POS_DOOR_HOME MIN_DOOR_DEG
-#define POS_DOOR_MEDIUM_OPEN (MIN_DOOR_DEG - 50)
+#define POS_DOOR_MEDIUM_OPEN (POS_DOOR_HOME - 30)
 #define POS_DOOR_FULL_OPEN MAX_DOOR_DEG
-#define POS_DOOR_CHECK_NINJA (MIN_DOOR_DEG - 80)
+#define POS_DOOR_CHECK_NINJA (POS_DOOR_HOME - 70)
+#define POS_DOOR_FLAP POS_DOOR_HOME - 20
 
 #define MIN_FLAG_DEG 60
 #define MAX_FLAG_DEG 160
@@ -35,7 +36,7 @@
 #define MECANIC_DELAY_SWITCH 50     // 50 msec to acknowledge a hit
 
 #define IMPATIENT_INTERVAL_THRESHOLD 5  //times the interval must be triggered before impatient mode is activated
-#define IMPATIENT_INTERVAL_TIME 15000
+const long IMPATIENT_INTERVAL_TIME = 20000;
 #define NUM_MAX_IMPATIENT_ACTION 7      //number of impatient actions - while the box stays in impatient mode
 
 #define NUM_BEHAVIOURS 13
@@ -90,6 +91,7 @@ void setup() {
   arm.attach(&bouncer, armServoPin, POS_ARM_HOME);
   door.attach(&bouncer, doorServoPin, POS_DOOR_HOME);
   flag.attach(&bouncer, flagServoPin, POS_flag_HIDDEN);
+  activatedTimestamp = IMPATIENT_INTERVAL_TIME + 1;
  
   Serial.println("Initializing random seed."); 
   randomSeed(analogRead(0));      
@@ -162,18 +164,22 @@ void goStealthCheck() {
   interrupted = arm.move(POS_ARM_NEAR_SWITCH + 7, 30);  
 }
 
-void openDoorNija() {
-  interrupted = door.move(POS_DOOR_CHECK_NINJA, 30);
+void openDoorNija(int msec = 30) {
+  interrupted = door.move(POS_DOOR_CHECK_NINJA, msec);
+}
+
+void openDoorFlap(int msec = 0) {
+  interrupted = door.move(POS_DOOR_FLAP, msec);  
 }
 
 void openDoorMedium(int msec = 0) {
   interrupted = door.move(POS_DOOR_MEDIUM_OPEN, msec);
-  delay(MECANIC_DELAY_SWITCH);
+  //delay(MECANIC_DELAY_SWITCH);
 }
 
 void openDoorFull(int msec = 0) {
   interrupted = door.move(POS_DOOR_FULL_OPEN, msec);
-  delay(MECANIC_DELAY_SWITCH);
+  //delay(MECANIC_DELAY_SWITCH);
 }
 
 // Ok, back home now
@@ -216,10 +222,10 @@ void waveflag(int times)
   if (!interrupted) softDelay(100);
   for (i = 0; i < times; i++) {    
     tiltflag();
-    softDelay(30);
+    softDelay(15);
     raiseflag();
   }
-  softDelay(100);
+  softDelay(70);
   hideflag();
 }
 
@@ -272,7 +278,7 @@ void checkReturn() {
   if (!interrupted) goCheck();
   if (!interrupted) softDelay(1500);
   if (!interrupted) backHome();
-  if (!interrupted) softDelay(800);
+  if (!interrupted) softDelay(600);
   if (!interrupted) goFlipThatSwitch();
 }
 
@@ -357,10 +363,20 @@ void crazySlow() { //ok
 void flappingAround() {
   int i;
   for(i = 0; i < 5; i++) {
-    if (!interrupted) openDoorFull(15);
+    if (!interrupted) openDoorFull(10);
     if (!interrupted) closeDoor();    
-    if (!interrupted) softDelay(400);         
+    if (!interrupted) softDelay(200);         
   }
+  if (!interrupted) goFlipThatSwitch();   
+}
+
+void lowFlappingAround() {
+  int i;
+  for(i = 0; i < 5; i++) {
+    if (!interrupted) openDoorFlap(0);
+    if (!interrupted) closeDoor();        
+  }  
+  if (!interrupted) softDelay(500);         
   if (!interrupted) goFlipThatSwitch();   
 }
 
@@ -397,6 +413,26 @@ void moveBackAndForth() {
   if (!interrupted) openDoorNija();
   if (!interrupted) goStealthCheck();
   if (!interrupted) goFlipThatSwitch();  
+}
+
+void turnOffThenWait() {  
+  arm.interruptable(false);
+  if (!interrupted) goFlipThatSwitch(0);
+  if (!interrupted) goCheck(0);
+  arm.interruptable(true);
+  if (!interrupted) softDelay(2000);  
+}
+
+void turnOffwaitAndFlipDoor() {
+  arm.interruptable(false);
+  if (!interrupted) goFlipThatSwitch(0);  
+  int i;
+  for(i = 0; i < 3; i++) {
+    if (!interrupted) openDoorFull(0);    
+    if (!interrupted) openDoorMedium(7);      
+  }  
+  arm.interruptable(true);  
+  if (!interrupted) softDelay(500);    
 }
 
 void angryTurnOff() {
@@ -451,7 +487,9 @@ void loop() {
     if (!interrupted) goCheck(5);
     if (!interrupted) softDelay(1000);      
   }  else if (activated == HIGH) {
+    
     Serial.println("Who turned me on?");
+    
     arm.isHome(false);
     door.isHome(false);
     
@@ -464,7 +502,7 @@ void loop() {
       int newBehaviour;
       do {
         newBehaviour = random(1, NUM_BEHAVIOURS);      
-      } while (!newBehaviour == randBehaviour );
+      } while (newBehaviour == randBehaviour );
       randBehaviour = newBehaviour;    
     }
 
@@ -484,7 +522,10 @@ void loop() {
       Serial.println(IMPATIENT_INTERVAL_THRESHOLD);
       Serial.print("Time difference is: ");
       Serial.println(millis() - activatedTimestamp);
+      
     }
+    //update activated after check
+    activatedTimestamp = millis();
     if (!impatient && impatientThresholdCount >= IMPATIENT_INTERVAL_THRESHOLD ) {
       Serial.println("Alright, thats it! I'm getting impatient!");
       impatient = true;     
@@ -509,10 +550,14 @@ void loop() {
           randBehaviour = 1;  
       }      
     }     
+
+    //debug
+    //randBehaviour = 16;    
     
-    Serial.print("Starting behaviour: [");
+    Serial.print("-------- Starting behaviour: [");
     Serial.print(randBehaviour);
     Serial.println("]");
+    Serial.print("-------- ");
     switch(randBehaviour) { 
       case 1: 
         Serial.println("Normal flip");
@@ -554,6 +599,15 @@ void loop() {
       case 12:
         Serial.println("Back and Forth");
         moveBackAndForth(); break;
+      case 14:
+        Serial.println("low flapping around");
+        lowFlappingAround(); break;  
+      case 15:
+        Serial.println("turn off, wait");
+        turnOffThenWait(); break;  
+      case 16:
+        Serial.println("long wait after turnoff");
+        turnOffwaitAndFlipDoor(); break; 
       case 100:
         Serial.println("Vibrating");      
         vibrating(); break;  
@@ -569,10 +623,9 @@ void loop() {
       } 
       interrupted = false; 
       hasAlreadyChecked = false;      
-      activatedTimestamp = millis();
   } 
   arm.waitAndDetatch();
   door.waitAndDetatch();
   flag.waitAndDetatch();  
-  randCheck = random(1, 100000);  
+  randCheck = random(1, 500000);  
 }
