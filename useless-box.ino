@@ -70,8 +70,9 @@ int impatientThresholdCount = 0;  // How may times was the switch operated in sh
 boolean impatient = false;        // is the box impatient
 unsigned long activatedTimestamp; // When was the box last activated
 
-MotorControl motor = MotorControl();
+
 Distance distance = Distance();
+MotorControl motor = MotorControl();
 ServoControl arm = ServoControl("arm");
 ServoControl door = ServoControl("door");
 ServoControl flag = ServoControl("flag");
@@ -99,7 +100,11 @@ void setup() {
   Serial.println("Initializing random seed."); 
   randomSeed(analogRead(0));      
 }
-// A "soft" delay function - This function can be interrupted by manual switch change
+
+/**
+ * A "soft" delay function - This function can be interrupted by manual switch change.
+ * If interrupted the method returns early and sets the interruped state variable to true.
+ */
 void softDelay(int msec) {
   Serial.print("Delaying for ");
   Serial.print(msec);
@@ -120,6 +125,9 @@ void softDelay(int msec) {
   } while(time_counter <= msec);
 }
 
+/**
+ * Detect movement inside a given threshold
+ */
 boolean detect() {
   int currentDistance;
   delay(1200);    //wait to stabilize sensor readings after opening the door 
@@ -146,6 +154,9 @@ boolean detect() {
   return false;
 }
 
+/**
+ * Simple blink method for debug purposes
+ */
 void debugBlink(int times = 3, int wait = 200) {
   int i;
   for (i = 0; i < times; i++) {
@@ -156,9 +167,70 @@ void debugBlink(int times = 3, int wait = 200) {
   }  
 }
 
+/**
+ * Reset operation to normal mode, reposition arm and door
+ */
+void resetToNormalMode() {
+  Serial.println("Getting tired, leaving impatient mode...");      
+  impatientCount = 0;
+  impatient = false;
+  arm.reattach();
+  door.reattach();    
+  door.setHome(POS_DOOR_HOME);
+  door.isHome(false);
+  arm.setHome(POS_ARM_HOME);    
+  arm.isHome(false);
+}
+
+/**
+ * Set operation mode to impation mode, reposition arm and door
+ */
+void setImpatientMode() {
+  Serial.println("Alright, thats it! I'm getting impatient!");
+  impatient = true;    
+  impatientThresholdCount = 0;     
+  arm.isHome(false);
+  arm.setHome(POS_ARM_PEEK);      
+  door.isHome(false);
+  door.setHome(POS_DOOR_MEDIUM_OPEN);            
+  delay(100);
+}
+
+/**
+ * Get the next normal behaviour
+ */
+int determineNormalBehaviour() {            
+  int newBehaviour;
+  do {
+    newBehaviour = random(1, NUM_BEHAVIOURS);      
+  } while (newBehaviour == selectedBehaviour );
+  selectedBehaviour = newBehaviour;    
+  return newBehaviour;  
+}
+
+/**
+ * Get the next behaviour for impatient mode
+ */
+int determineImpatientBehaviour() {     
+  //define "special" moves
+  switch(impatientCount) {
+    case NUM_MAX_IMPATIENT_ACTION - 3:
+      return 9;
+    case NUM_MAX_IMPATIENT_ACTION - 2:
+      return 101;
+    case NUM_MAX_IMPATIENT_ACTION - 1: 
+      return 100;
+    case NUM_MAX_IMPATIENT_ACTION:
+      return 102;
+    default:
+      return 1;  
+  }  
+}
+
 /* ------------------------------- */
 /* ---- STANDARD BEHAVIOURS ------ */
 /* ------------------------------- */
+
 void flipSwitch(int msec = 0) { 
   interrupted = arm.move(POS_SWITCH_ARM, msec); 
   delay(MECANIC_DELAY_SWITCH); // Wait for the switch to acknowledge before returning in the loop
@@ -233,17 +305,21 @@ void waveflag(int times)
   if (!interrupted) raiseflag();  
   if (!interrupted) softDelay(100);
   for (i = 0; i < times; i++) {    
-    tiltflag();
-    softDelay(15);
-    raiseflag();
+    if (!interrupted) tiltflag();
+    if (!interrupted) softDelay(15);
+    if (!interrupted) raiseflag();
+    if(interrupted) {
+      break;
+    }
   }
-  softDelay(70);
+  if (!interrupted) softDelay(70);
   hideflag();
 }
 
-/**
- * interruptable methods - use these in switch statement
- */
+/* ------------------------------------ */
+/* ---- INTERRUPTABLE BEHAVIOURS ------ */
+/* use these for the concrete movements */
+/* ------------------------------------ */
 
 // Go out and flip that switch the user just
 void goFlipThatSwitch(int msec = 0) { 
@@ -251,11 +327,10 @@ void goFlipThatSwitch(int msec = 0) {
   if (!interrupted) flipSwitch(msec);
 }
 
-void driveAway()
-{
+void driveAway(){
   if (!interrupted) openDoorMedium();
   if (!interrupted) motor.forward(100);
-  softDelay(2000);  
+  if (!interrupted) softDelay(2000);  
   /*if(!interrupted && detect()) {
     Serial.println("Detected movement!");
     if (!interrupted) motor.forward(100);
@@ -456,54 +531,6 @@ void angryTurnOff() {
   flag.isHome(false);  
   if (!interrupted) openDoorFull();
   if (!interrupted) waveflag(7);  
-}
-
-void resetToNormalMode() {
-  Serial.println("Getting tired, leaving impatient mode...");      
-  impatientCount = 0;
-  impatient = false;
-  arm.reattach();
-  door.reattach();    
-  door.setHome(POS_DOOR_HOME);
-  door.isHome(false);
-  arm.setHome(POS_ARM_HOME);    
-  arm.isHome(false);
-}
-
-void setImpatientMode() {
-  Serial.println("Alright, thats it! I'm getting impatient!");
-  impatient = true;    
-  impatientThresholdCount = 0;     
-  arm.isHome(false);
-  arm.setHome(POS_ARM_PEEK);      
-  door.isHome(false);
-  door.setHome(POS_DOOR_MEDIUM_OPEN);            
-  delay(100);
-}
-
-int determineNormalBehaviour() {            
-  int newBehaviour;
-  do {
-    newBehaviour = random(1, NUM_BEHAVIOURS);      
-  } while (newBehaviour == selectedBehaviour );
-  selectedBehaviour = newBehaviour;    
-  return newBehaviour;  
-}
-
-int determineImpatientBehaviour() {     
-  //define "special" moves
-  switch(impatientCount) {
-    case NUM_MAX_IMPATIENT_ACTION - 3:
-      return 9;
-    case NUM_MAX_IMPATIENT_ACTION - 2:
-      return 101;
-    case NUM_MAX_IMPATIENT_ACTION - 1: 
-      return 100;
-    case NUM_MAX_IMPATIENT_ACTION:
-      return 102;
-    default:
-      return 1;  
-  }  
 }
 
 int randomCheck() {
