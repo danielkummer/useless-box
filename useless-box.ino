@@ -78,6 +78,20 @@ ServoControl door = ServoControl("door");
 ServoControl flag = ServoControl("flag");
 
 
+/**
+ * Simple blink method for debug purposes
+ */
+void debugBlink(int times = 3, int wait = 200) {
+  int i;
+  for (i = 0; i < times; i++) {
+    digitalWrite(debugPin, HIGH);
+    delay(wait);
+    digitalWrite(debugPin, LOW);  
+    delay(wait);
+  }  
+}
+
+
 void setup() {  
   pinMode(boxSwitchPin, INPUT);
   pinMode(directionPin, OUTPUT);  
@@ -97,7 +111,11 @@ void setup() {
   flag.attach(&bouncer, flagServoPin, POS_flag_HIDDEN);
   activatedTimestamp = IMPATIENT_INTERVAL_TIME + 1;
  
-  Serial.println("Initializing random seed."); 
+  Serial.println("Initializing random seed.");
+
+  
+  //debug - I'm able to detect arduino resets like this...
+  debugBlink(10, 100); 
   randomSeed(analogRead(0));      
 }
 
@@ -152,19 +170,6 @@ boolean detect() {
     lastDistance = currentDistance;
   }
   return false;
-}
-
-/**
- * Simple blink method for debug purposes
- */
-void debugBlink(int times = 3, int wait = 200) {
-  int i;
-  for (i = 0; i < times; i++) {
-    digitalWrite(debugPin, HIGH);
-    delay(wait);
-    digitalWrite(debugPin, LOW);  
-    delay(wait);
-  }  
 }
 
 /**
