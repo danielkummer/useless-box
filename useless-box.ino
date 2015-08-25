@@ -3,9 +3,11 @@
 #ifdef ENABLE_PRINT
   #define Sprintln(a) (Serial.println(a))
   #define Sprint(a) (Serial.print(a))
+  #define Sbegin(a) (Serial.begin(a))
 #else   
   #define Sprintln(a)
   #define Sprint(a)
+  #define Sbegin(a)
 #endif
 
 #include <Servo.h>
@@ -36,9 +38,9 @@
 
 #define MIN_FLAG_DEG 60
 #define MAX_FLAG_DEG 160
-#define POS_flag_HIDDEN MIN_FLAG_DEG
-#define POS_flag_RAISED MAX_FLAG_DEG
-#define POS_flag_TILTED (MAX_FLAG_DEG - 40)
+#define POS_FLAG_HIDDEN MIN_FLAG_DEG
+#define POS_FLAG_RAISED MAX_FLAG_DEG
+#define POS_FLAG_TILTED (MAX_FLAG_DEG - 40)
 
 // the number of msec (approx.) for the servo to go one degree further
 #define MECANIC_SPEED_PER_DEGREE 2  // 2 msec to move 1 degree
@@ -49,7 +51,7 @@
 const long IMPATIENT_INTERVAL_TIME = 20000;
 #define NUM_MAX_IMPATIENT_ACTION 7      //number of impatient actions - while the box stays in impatient mode
 
-#define NUM_BEHAVIOURS 13
+#define NUM_BEHAVIOURS 18
 
 // Pins
 const int armServoPin = 9;
@@ -87,7 +89,6 @@ ServoControl arm = ServoControl("arm");
 ServoControl door = ServoControl("door");
 ServoControl flag = ServoControl("flag");
 
-
 /**
  * Simple blink method for debug purposes
  */
@@ -101,29 +102,25 @@ void debugBlink(int times = 3, int wait = 200) {
   }  
 }
 
-
 void setup() {  
   pinMode(boxSwitchPin, INPUT);
   pinMode(directionPin, OUTPUT);  
   pinMode(distancePin,INPUT);
-
   pinMode(debugPin, OUTPUT);  
   
-  Serial.begin(9600);
+  Sbegin(9600);
   Sprintln(F("Started.")); 
   Sprintln(F("Initializing positions."));
 
   bouncer.attach(boxSwitchPin);
   motor.attach(directionPin, throttlePin);
   distance.attach(2);
-  arm.attach(&bouncer, armServoPin, POS_ARM_HOME);
-  door.attach(&bouncer, doorServoPin, POS_DOOR_HOME);
-  flag.attach(&bouncer, flagServoPin, POS_flag_HIDDEN);
+  arm.attach(&bouncer, armServoPin, POS_ARM_HOME, POS_SWITCH_ARM);
+  door.attach(&bouncer, doorServoPin, POS_DOOR_HOME, POS_DOOR_FULL_OPEN);
+  flag.attach(&bouncer, flagServoPin, POS_FLAG_HIDDEN, POS_FLAG_RAISED);
+  
   activatedTimestamp = IMPATIENT_INTERVAL_TIME + 1;
  
-  Sprintln(F("Initializing random seed."));
-
-  
   //debug - I'm able to detect arduino resets like this...
   debugBlink(3, 1000); 
   randomSeed(analogRead(0));      
@@ -227,19 +224,21 @@ int determineNormalBehaviour() {
  * Get the next behaviour for impatient mode
  */
 int determineImpatientBehaviour() {     
+  int result = 1;
   //define "special" moves
   switch(impatientCount) {
     case NUM_MAX_IMPATIENT_ACTION - 3:
-      return 9;
+      result = 9; break;
     case NUM_MAX_IMPATIENT_ACTION - 2:
-      return 101;
+      result = 101; break;
     case NUM_MAX_IMPATIENT_ACTION - 1: 
-      return 100;
+      result = 100; break;
     case NUM_MAX_IMPATIENT_ACTION:
-      return 102;
+      result = 102; break;
     default:
-      return 1;  
+      break;
   }  
+  return result;
 }
 
 /* ------------------------------- */
@@ -272,13 +271,11 @@ void openDoorFlap(int msec = 0) {
 }
 
 void openDoorMedium(int msec = 0) {
-  interrupted = door.move(POS_DOOR_MEDIUM_OPEN, msec);
-  //delay(MECANIC_DELAY_SWITCH);
+  interrupted = door.move(POS_DOOR_MEDIUM_OPEN, msec);  
 }
 
 void openDoorFull(int msec = 0) {
   interrupted = door.move(POS_DOOR_FULL_OPEN, msec);
-  //delay(MECANIC_DELAY_SWITCH);
 }
 
 // Ok, back home now
@@ -295,27 +292,22 @@ void goCheck(int msec = 10) {
 void closeDoor(int msec = 0) {
   int homePos = impatient ? POS_DOOR_MEDIUM_OPEN : POS_DOOR_HOME;  
   interrupted = door.move(homePos, msec);
-  //delay(MECANIC_DELAY_SWITCH);
 }
 
 
 void raiseflag(int msec = 0) {
-  interrupted = flag.move(POS_flag_RAISED, msec);
-  //delay(MECANIC_DELAY_SWITCH);
+  interrupted = flag.move(POS_FLAG_RAISED, msec);
 }
 
 void tiltflag(int msec = 0) {
-  interrupted = flag.move(POS_flag_TILTED, msec);
-  //delay(MECANIC_DELAY_SWITCH);
+  interrupted = flag.move(POS_FLAG_TILTED, msec);
 }
 
 void hideflag(int msec = 0) {
-  interrupted = flag.move(POS_flag_HIDDEN, msec);  
-  //delay(MECANIC_DELAY_SWITCH);
+  interrupted = flag.move(POS_FLAG_HIDDEN, msec);  
 }
 
-void waveflag(int times)
-{
+void waveflag(int times) {
   byte i;
   raiseflag();  
   softDelay(100);
@@ -325,7 +317,7 @@ void waveflag(int times)
     raiseflag();    
   }
   softDelay(70);
-  hideflag();
+  hideflag();  
 }
 
 /* ------------------------------------ */
@@ -489,8 +481,7 @@ void vibrating() {
   if (!interrupted) goFlipThatSwitch();  
 }
 
-void moveBackAndForth() {
-  
+void moveBackAndForth() {  
   if (!interrupted) motor.forward(100);
   if (!interrupted) softDelay(600); 
   if (!interrupted) motor.backward(100);
@@ -541,8 +532,8 @@ void angryTurnOff() {
   arm.interruptable(true);
   if (!interrupted) softDelay(300);
   flag.isHome(false);  
-  if (!interrupted) openDoorFull();
-  if (!interrupted) waveflag(7);  
+  openDoorFull();
+  waveflag(7);  
 }
 
 int randomCheck() {
@@ -558,11 +549,13 @@ void loop() {
   // Update the switch position
   bouncer.update();
   activated = bouncer.read();  
-     
-  if (flag.isHome() == false) {    
+
+  //do i need this?
+  /*if (flag.isHome() == false) {    
     Sprintln(F("Hiding flag"));
     hideflag();        
-  } else if (arm.isHome() == false) {    
+  } else*/
+  if (arm.isHome() == false) {    
     Sprintln(F("Going back home"));
     backHome();        
   } else if (door.isHome() == false) {
@@ -663,11 +656,7 @@ void loop() {
         crazyDoor(); break;
       case 11: 
         Sprintln(F("Drive away"));
-        driveAway(); break;
-      //should i really include this in the normal operaion mode? it's a special gimick
-      //case 12:
-      //  Sprintln(F("White flag"));
-      //  whiteflag(); break;         
+        driveAway(); break;      
       case 12:
         Sprintln(F("Back and Forth"));
         moveBackAndForth(); break;
@@ -680,6 +669,9 @@ void loop() {
       case 16:
         Sprintln(F("long wait after turnoff"));
         turnOffwaitAndFlipDoor(); break; 
+      case 17: //should i really include this in the normal operaion mode? it's a special gimick      
+        Sprintln(F("White flag"));
+        whiteflag(); break;         
       case 100:
         Sprintln(F("Vibrating"));      
         vibrating(); break;  
@@ -693,11 +685,14 @@ void loop() {
         Sprintln(F("Default"));
         goFlipThatSwitch(); break;   
       } 
+      //reset the interrupted state - i'm done now...
       interrupted = false; 
-  } 
+  } // end switch-if
+   
   arm.waitAndDetatch();
   door.waitAndDetatch();
   flag.waitAndDetatch();  
   Sprintln(F("end of loop, all detatched..."));
+  
   randCheck = random(1, 500000);  
 }

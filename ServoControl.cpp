@@ -5,6 +5,14 @@
 #endif
 #include "ServoControl.h"
 
+#ifdef ENABLE_PRINT
+  #define Sprintln(a) (Serial.println(a))
+  #define Sprint(a) (Serial.print(a))
+#else   
+  #define Sprintln(a)
+  #define Sprint(a)
+#endif
+
 #define MECANIC_SPEED_PER_DEGREE 5 // 2 msec to move 1 degree #define MECANIC_SPEED_PER_DEGREE 2 // 2 msec to move 1 degree
 
 ServoControl::ServoControl(char name[]) {
@@ -15,13 +23,13 @@ ServoControl::ServoControl(char name[]) {
   this->is_interruptable = true;
 }
 
-void ServoControl::attach(Bounce* bouncer, int pin, int pos_home) {
+void ServoControl::attach(Bounce* bouncer, int pin, int pos_home, int pos_max) {
   this->pin = pin;
   this->pos_home = pos_home;
+  this->pos_max = pos_max;
   this->bouncer = bouncer;
   this->servo.write(pos_home);
   this->servo.attach(pin);
-
 }
 
 void ServoControl::interruptable(bool interruptable) {
@@ -37,44 +45,39 @@ bool ServoControl::move(int degree) {
 
   bool interrupted = false;
 
-  /* For Debug only!
-    Serial.print("Moving ");
-    Serial.print(this->name);
-    Serial.print(" to position : ");
-    Serial.print(degree);
-    Serial.println("deg.");
-  */
-
+  Sprint(F("Moving "));
+  Sprint(F(this->name));
+  Sprint(F(" to position : "));
+  Sprint(F(degree));
+  Sprintln(F("deg."));
 
   bouncer->update();
-  int first_switch_value = bouncer->read();
+  int switch_value_before_move = bouncer->read();
 
   // Check the last command we gave to the servo
   int current_degree = servo.read();
   last_write = current_degree;
 
   // And then moves ! degree by degree, checking the switch position each time
+  //while (current_degree != degree) {
   while (current_degree != degree) {
     if (current_degree < degree) {
       current_degree++;
-    }
-    else {
+    } else {
       current_degree--;
     }
-
     servo.write(current_degree);
     delay(MECANIC_SPEED_PER_DEGREE + this->current_speed);
 
     // Read switch again in loop so we can react if something changes
     bouncer->update();
     int current_value = bouncer->read();
-    if (this->is_interruptable && current_value != first_switch_value) {
+    if (this->is_interruptable && current_value != switch_value_before_move) {
       //a bit unlucky but i can't really rely on the arm switch of position, so I'm going for a "soft" trigger here
-      if (strcmp(this->name, "arm") != 0 || current_degree < 160) {
-        /* For Debug only
-        Serial.print(this->name);
-        Serial.print(" : ");
-        Serial.println("/!\\ Interrupted - The switch was operated while I was moving !"); */
+      if (strcmp(this->name, "arm") != 0 || current_degree < 160) {        
+        Sprint(this->name);
+        Sprint(F(" : "));
+        Sprintln(F("/!\\ Interrupted - The switch was operated while I was moving !"));
         interrupted = true;
         break;
       }      
@@ -89,16 +92,14 @@ uint8_t ServoControl::getLastWrite() {
 
 void ServoControl::waitAndDetatch() {
   if (this->servo.read() == pos_home && this->is_home == false) {
-    /* For Debug only !
-    Serial.print("Powering off the " );
-    Serial.print(this->name);
-    Serial.println(" servo ..."); */
+    Sprint(F("Powering off the "));
+    Sprint(this->name);
+    Sprintln(F(" servo ..."));
     int time_to_wait = abs(this->last_write - pos_home) * (this->current_speed + MECANIC_SPEED_PER_DEGREE);
     delay(time_to_wait);
     this->is_home = true;
     servo.detach();
   }
-
 }
 
 bool ServoControl::isHome() {
