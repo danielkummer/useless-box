@@ -1,3 +1,13 @@
+//#define ENABLE_PRINT
+
+#ifdef ENABLE_PRINT
+  #define Sprintln(a) (Serial.println(a))
+  #define Sprint(a) (Serial.print(a))
+#else   
+  #define Sprintln(a)
+  #define Sprint(a)
+#endif
+
 #include <Servo.h>
 #include <Bounce2.h>
 
@@ -17,7 +27,7 @@
 #define POS_ARM_NEAR_SWITCH (MAX_ARM_DEG - 50)
 
 #define MIN_DOOR_DEG 90
-#define MAX_DOOR_DEG 38
+#define MAX_DOOR_DEG 40
 #define POS_DOOR_HOME MIN_DOOR_DEG
 #define POS_DOOR_MEDIUM_OPEN (POS_DOOR_HOME - 30)
 #define POS_DOOR_FULL_OPEN MAX_DOOR_DEG
@@ -100,8 +110,8 @@ void setup() {
   pinMode(debugPin, OUTPUT);  
   
   Serial.begin(9600);
-  Serial.println("Started."); 
-  Serial.println("Initializing positions.");
+  Sprintln(F("Started.")); 
+  Sprintln(F("Initializing positions."));
 
   bouncer.attach(boxSwitchPin);
   motor.attach(directionPin, throttlePin);
@@ -111,11 +121,11 @@ void setup() {
   flag.attach(&bouncer, flagServoPin, POS_flag_HIDDEN);
   activatedTimestamp = IMPATIENT_INTERVAL_TIME + 1;
  
-  Serial.println("Initializing random seed.");
+  Sprintln(F("Initializing random seed."));
 
   
   //debug - I'm able to detect arduino resets like this...
-  debugBlink(10, 100); 
+  debugBlink(3, 1000); 
   randomSeed(analogRead(0));      
 }
 
@@ -124,9 +134,9 @@ void setup() {
  * If interrupted the method returns early and sets the interruped state variable to true.
  */
 void softDelay(int msec) {
-  Serial.print("Delaying for ");
-  Serial.print(msec);
-  Serial.println(" msec..."); 
+  Sprint(F("Delaying for "));
+  Sprint(msec);
+  Sprintln(F(" msec...")); 
   bouncer.update();
   int val = bouncer.read();
   long time_counter = 0;  
@@ -136,7 +146,7 @@ void softDelay(int msec) {
     bouncer.update();
     int current_value = bouncer.read();
     if (current_value != val) {
-      Serial.println("/!\\[Soft Delay] Interrupted - The switch was operated while I was waiting on purpose !");
+      Sprintln(F("/!\\[Soft Delay] Interrupted - The switch was operated while I was waiting on purpose !"));
       interrupted = true;
       break;
     }
@@ -154,17 +164,17 @@ boolean detect() {
   // wait for movement that exceeds threshold or if timer expires (5 sec),
   while(millis() - timer <= 5000) {
     currentDistance = analogRead(distancePin);
-    Serial.print("currentDistance:" );
-    Serial.print(currentDistance);
-    Serial.print(" lastDistance: ");
-    Serial.println(lastDistance);
+    Sprint(F("currentDistance:"));
+    Sprint(currentDistance);
+    Sprint(F(" lastDistance: "));
+    Sprintln(lastDistance);
     delay(500);
     //Does the current distance deviate from the last distance by more than the threshold?        
     if ((currentDistance > lastDistance + threshold || currentDistance < lastDistance - threshold)) {
-      Serial.print("Detected! currentDistance:" );
-      Serial.print(currentDistance);
-      Serial.print(" lastDistance: ");
-      Serial.println(lastDistance);
+      Sprint(F("Detected! currentDistance:"));
+      Sprint(currentDistance);
+      Sprint(F(" lastDistance: "));
+      Sprintln(lastDistance);
       return true;
     }
     lastDistance = currentDistance;
@@ -176,7 +186,7 @@ boolean detect() {
  * Reset operation to normal mode, reposition arm and door
  */
 void resetToNormalMode() {
-  Serial.println("Getting tired, leaving impatient mode...");      
+  Sprintln(F("Getting tired, leaving impatient mode..."));      
   impatientCount = 0;
   impatient = false;
   arm.reattach();
@@ -191,7 +201,7 @@ void resetToNormalMode() {
  * Set operation mode to impation mode, reposition arm and door
  */
 void setImpatientMode() {
-  Serial.println("Alright, thats it! I'm getting impatient!");
+  Sprintln(F("Alright, thats it! I'm getting impatient!"));
   impatient = true;    
   impatientThresholdCount = 0;     
   arm.isHome(false);
@@ -307,17 +317,14 @@ void hideflag(int msec = 0) {
 void waveflag(int times)
 {
   byte i;
-  if (!interrupted) raiseflag();  
-  if (!interrupted) softDelay(100);
+  raiseflag();  
+  softDelay(100);
   for (i = 0; i < times; i++) {    
-    if (!interrupted) tiltflag();
-    if (!interrupted) softDelay(15);
-    if (!interrupted) raiseflag();
-    if(interrupted) {
-      break;
-    }
+    tiltflag();
+    softDelay(15);
+    raiseflag();    
   }
-  if (!interrupted) softDelay(70);
+  softDelay(70);
   hideflag();
 }
 
@@ -337,7 +344,7 @@ void driveAway(){
   if (!interrupted) motor.forward(100);
   if (!interrupted) softDelay(2000);  
   /*if(!interrupted && detect()) {
-    Serial.println("Detected movement!");
+    Sprintln(F("Detected movement!"));
     if (!interrupted) motor.forward(100);
     if (!interrupted) softDelay(300);
     if (!interrupted) motor.halt();
@@ -493,7 +500,7 @@ void moveBackAndForth() {
   if (!interrupted) motor.backward(100);
   if (!interrupted) softDelay(600); 
   /*if(!interrupted && detect()) {
-    Serial.println("Detected movement!");
+    Sprintln(F("Detected movement!"));
     if (!interrupted) motor.forward(100);
     if (!interrupted) softDelay(300);
     if (!interrupted) motor.halt();
@@ -553,19 +560,19 @@ void loop() {
   activated = bouncer.read();  
      
   if (flag.isHome() == false) {    
-    Serial.println("Hiding flag");
+    Sprintln(F("Hiding flag"));
     hideflag();        
   } else if (arm.isHome() == false) {    
-    Serial.println("Going back home");
+    Sprintln(F("Going back home"));
     backHome();        
   } else if (door.isHome() == false) {
-    Serial.println("Closing door");
+    Sprintln(F("Closing door"));
     closeDoor();     
   } else if (randCheck < 5 && hasAlreadyChecked == false) {                
-    Serial.println("Random check, baby. ");            
+    Sprintln(F("Random check, baby. "));            
     randomCheck();
   }  else if (activated == HIGH) {    
-    Serial.println("Who turned me on?");
+    Sprintln(F("Who turned me on?"));
     
     arm.isHome(false);
     door.isHome(false);
@@ -575,21 +582,21 @@ void loop() {
     flag.reattach();
        
     if(impatient) {
-      Serial.print("I'm impatient right now - for the ");       
+      Sprint(F("I'm impatient right now - for the "));       
       impatientCount++;
-      Serial.print(impatientCount);
-      Serial.println(" time!");
+      Sprint(impatientCount);
+      Sprintln(F(" time!"));
     } else {
       //increase impatient trigger count if box is operated repeatedly in interval
       //if (!impatient && (millis() - activatedTimestamp <= IMPATIENT_INTERVAL_TIME)) {      
       //TODO activate threshold as soon as fixed standalone problem    
       impatientThresholdCount++;
-      Serial.print("Getting impatient... ");
-      Serial.print(impatientThresholdCount);
-      Serial.print(" of ");
-      Serial.println(IMPATIENT_INTERVAL_THRESHOLD);
-      Serial.print("Time difference is: ");
-      Serial.println(millis() - activatedTimestamp);
+      Sprint(F("Getting impatient... "));
+      Sprint(impatientThresholdCount);
+      Sprint(F(" of "));
+      Sprintln(IMPATIENT_INTERVAL_THRESHOLD);
+      Sprint(F("Time difference is: "));
+      Sprintln(millis() - activatedTimestamp);
       debugBlink(impatientThresholdCount);      
     }
     
@@ -619,71 +626,71 @@ void loop() {
       selectedBehaviour  = determineNormalBehaviour();
     }    
     
-    Serial.print("-------- Starting behaviour: [");
-    Serial.print(selectedBehaviour);
-    Serial.println("]");
-    Serial.print("-------- ");
+    Sprint(F("-------- Starting behaviour: ["));
+    Sprint(selectedBehaviour);
+    Sprintln(F("]"));
+    Sprint(F("-------- "));
     switch(selectedBehaviour) { 
       case 1: 
-        Serial.println("Normal flip");
+        Sprintln(F("Normal flip"));
         goFlipThatSwitch(); break;
       case 2: 
-        Serial.println("Check");  
+        Sprintln(F("Check"));  
         check(); break;
       case 3: 
-        Serial.println("Multi try");
+        Sprintln(F("Multi try"));
         multiTry(); break;
       case 4: 
-        Serial.println("Check and return");
+        Sprintln(F("Check and return"));
         checkReturn(); break;
       case 5: 
-        Serial.println("Check, check and return");
+        Sprintln(F("Check, check and return"));
         checkCheckReturn(); break;
       case 6: 
-        Serial.println("Afraid");
+        Sprintln(F("Afraid"));
         afraid(); break;
       case 7: 
-        Serial.println("Oh, wait");
+        Sprintln(F("Oh, wait"));
         ohWait(); break;
       case 8: 
-        Serial.println("Crazy slow");
+        Sprintln(F("Crazy slow"));
         crazySlow(); break;        
       case 9: 
-        Serial.println("Matrix");
+        Sprintln(F("Matrix"));
         matrix(); break;
       case 10: 
-        Serial.println("Crazy door");
+        Sprintln(F("Crazy door"));
         crazyDoor(); break;
       case 11: 
-        Serial.println("Drive away");
+        Sprintln(F("Drive away"));
         driveAway(); break;
       //should i really include this in the normal operaion mode? it's a special gimick
       //case 12:
-      //  Serial.println("White flag");
+      //  Sprintln(F("White flag"));
       //  whiteflag(); break;         
       case 12:
-        Serial.println("Back and Forth");
+        Sprintln(F("Back and Forth"));
         moveBackAndForth(); break;
       case 14:
-        Serial.println("low flapping around");
+        Sprintln(F("low flapping around"));
         lowFlappingAround(); break;  
       case 15:
-        Serial.println("turn off, wait");
+        Sprintln(F("turn off, wait"));
         turnOffThenWait(); break;  
       case 16:
-        Serial.println("long wait after turnoff");
+        Sprintln(F("long wait after turnoff"));
         turnOffwaitAndFlipDoor(); break; 
       case 100:
-        Serial.println("Vibrating");      
+        Sprintln(F("Vibrating"));      
         vibrating(); break;  
       case 101:
-        Serial.println("Flapping door around");
+        Sprintln(F("Flapping door around"));
         flappingAround(); break;      
       case 102:
-        Serial.println("Angry turn-off");
+        Sprintln(F("Angry turn-off"));
         angryTurnOff(); break;
       default: 
-        Serial.println("Default");
+        Sprintln(F("Default"));
         goFlipThatSwitch(); break;   
       } 
       interrupted = false; 
@@ -691,6 +698,6 @@ void loop() {
   arm.waitAndDetatch();
   door.waitAndDetatch();
   flag.waitAndDetatch();  
-  Serial.println("end of loop, all detatched...");
+  Sprintln(F("end of loop, all detatched..."));
   randCheck = random(1, 500000);  
 }
