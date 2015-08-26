@@ -28,7 +28,7 @@
 #define POS_ARM_CHECK_NINJA (MIN_ARM_DEG + 20)
 #define POS_ARM_NEAR_SWITCH (MAX_ARM_DEG - 50)
 
-#define MIN_DOOR_DEG 90
+#define MIN_DOOR_DEG 100
 #define MAX_DOOR_DEG 40
 #define POS_DOOR_HOME MIN_DOOR_DEG
 #define POS_DOOR_MEDIUM_OPEN (POS_DOOR_HOME - 30)
@@ -93,13 +93,13 @@ ServoControl flag = ServoControl("flag");
  * Simple blink method for debug purposes
  */
 void debugBlink(int times = 3, int wait = 200) {
-  int i;
+  /*int i;
   for (i = 0; i < times; i++) {
     digitalWrite(debugPin, HIGH);
     delay(wait);
     digitalWrite(debugPin, LOW);  
     delay(wait);
-  }  
+  }*/  
 }
 
 void setup() {  
@@ -604,7 +604,14 @@ void loop() {
       digitalWrite(debugPin, HIGH);
     }
 
-    //reset to normal mode after NUM_MAX_IMPATIENT_ACTION actions have been performed;
+    //use specific moves in impatient mode 
+    if (impatient) {
+      selectedBehaviour = determineImpatientBehaviour();    
+    } else {      
+      selectedBehaviour  = determineNormalBehaviour();
+    }    
+
+        //reset to normal mode after NUM_MAX_IMPATIENT_ACTION actions have been performed;
     if(impatient && impatientCount >= NUM_MAX_IMPATIENT_ACTION) { 
       //TODO: Debug led, remove
       debugBlink(5, 70);  
@@ -612,12 +619,9 @@ void loop() {
       resetToNormalMode(); 
     }  
 
-    //use specific moves in impatient mode 
-    if (impatient) {
-      selectedBehaviour = determineImpatientBehaviour();    
-    } else {      
-      selectedBehaviour  = determineNormalBehaviour();
-    }    
+
+    
+    //selectedBehaviour = 12;
     
     Sprint(F("-------- Starting behaviour: ["));
     Sprint(selectedBehaviour);
