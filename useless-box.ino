@@ -335,12 +335,12 @@ void driveAway(){
   if (!interrupted) openDoorMedium();
   if (!interrupted) motor.forward(100);
   if (!interrupted) softDelay(2000);  
-  /*if(!interrupted && detect()) {
+  if(!interrupted && detect(3000)) {
     Sprintln(F("Detected movement!"));
     if (!interrupted) motor.forward(100);
-    if (!interrupted) softDelay(300);
+    if (!interrupted) softDelay(800);
     if (!interrupted) motor.halt();
-  }*/  
+  }
   motor.halt();
   if (!interrupted) goFlipThatSwitch();  
 }
@@ -490,12 +490,12 @@ void moveBackAndForth() {
   if (!interrupted) softDelay(600); 
   if (!interrupted) motor.backward(100);
   if (!interrupted) softDelay(600); 
-  /*if(!interrupted && detect()) {
+  if(!interrupted && detect(3000)) {
     Sprintln(F("Detected movement!"));
     if (!interrupted) motor.forward(100);
     if (!interrupted) softDelay(300);
     if (!interrupted) motor.halt();
-  }*/  
+  }  
   motor.halt();
   if (!interrupted) openDoorNija();  
   if (!interrupted) goFlipThatSwitch();  

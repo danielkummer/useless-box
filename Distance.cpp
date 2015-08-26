@@ -36,6 +36,7 @@ boolean Distance::detect(int threshold) {
       return true;
     }
     lastDistance = currentDistance;
+    delay(500); // new values every 500ms    
   }
   return false;           
 }
