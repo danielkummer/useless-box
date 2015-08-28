@@ -5,7 +5,7 @@
 #endif
 #include "ServoControl.h"
 
-#ifdef ENABLE_PRINT
+#if defined(ENABLE_PRINT)
   #define Sprintln(a) (Serial.println(a))
   #define Sprint(a) (Serial.print(a))
 #else   
@@ -58,13 +58,14 @@ bool ServoControl::move(int degree) {
   int current_degree = servo.read();
   last_write = current_degree;
 
+
   // And then moves ! degree by degree, checking the switch position each time
   //while (current_degree != degree) {
   while (current_degree != degree) {
     if (current_degree < degree) {
       current_degree++;
     } else {
-      current_degree--;
+      current_degree--;      
     }
     servo.write(current_degree);
     delay(MECANIC_SPEED_PER_DEGREE + this->current_speed);
@@ -74,14 +75,27 @@ bool ServoControl::move(int degree) {
     int current_value = bouncer->read();
     if (this->is_interruptable && current_value != switch_value_before_move) {
       //a bit unlucky but i can't really rely on the arm switch of position, so I'm going for a "soft" trigger here
-      if (strcmp(this->name, "arm") != 0 || current_degree < 160) {        
-        Sprint(this->name);
-        Sprint(F(" : "));
-        Sprintln(F("/!\\ Interrupted - The switch was operated while I was moving !"));
-        interrupted = true;
+      //Todo this check is really crappy - there must be a better way...
+      if (strcmp(this->name, "arm") != 0 ) {              
+        if (this->pos_max > this->pos_home) {
+            //condition is inverted, only interrupt if not true
+           if (current_degree <= this->pos_max - 10 || current_degree >= this->pos_home + 10) {
+            interrupted = true;   
+           }         
+        } else {
+           if (current_degree >= this->pos_max - 10 || current_degree <= this->pos_home + 10) {
+            interrupted = true;
+           }
+        } 
+      }
+
+         if(interrupted) {
+          Serial.print(this->name);
+          Serial.print(F(" : "));
+          Serial.println(F("/!\\ Interrupted - The switch was operated while I was moving !"));  
+        }                
         break;
-      }      
-    }
+    }          
   }
   return interrupted;
 }

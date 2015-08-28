@@ -1,4 +1,4 @@
-//#define ENABLE_PRINT
+#define ENABLE_PRINT
 
 #ifdef ENABLE_PRINT
   #define Sprintln(a) (Serial.println(a))
@@ -14,7 +14,6 @@
 #include <Bounce2.h>
 
 #include "MotorControl.h"
-#include "Distance.h"
 #include "ServoControl.h"
 
 /*
@@ -25,13 +24,13 @@
 #define POS_ARM_HOME MIN_ARM_DEG
 #define POS_SWITCH_ARM MAX_ARM_DEG
 #define POS_ARM_PEEK (MIN_ARM_DEG + 70)
-#define POS_ARM_CHECK_NINJA (MIN_ARM_DEG + 20)
+#define POS_ARM_CHECK_NINJA (MIN_ARM_DEG + 20) 
 #define POS_ARM_NEAR_SWITCH (MAX_ARM_DEG - 50)
 
 #define MIN_DOOR_DEG 100
 #define MAX_DOOR_DEG 40
 #define POS_DOOR_HOME MIN_DOOR_DEG
-#define POS_DOOR_MEDIUM_OPEN (POS_DOOR_HOME - 30)
+#define POS_DOOR_MEDIUM_OPEN (POS_DOOR_HOME - 30) //TODO medium is low and ninja is very high open... not really good, ninja should be so low that the arm has to push through the door
 #define POS_DOOR_FULL_OPEN MAX_DOOR_DEG
 #define POS_DOOR_CHECK_NINJA (POS_DOOR_HOME - 70)
 #define POS_DOOR_FLAP POS_DOOR_HOME - 20
@@ -51,7 +50,7 @@
 const long IMPATIENT_INTERVAL_TIME = 20000;
 #define NUM_MAX_IMPATIENT_ACTION 7      //number of impatient actions - while the box stays in impatient mode
 
-#define NUM_BEHAVIOURS 18
+#define NUM_BEHAVIOURS 19
 
 // Pins
 const int armServoPin = 9;
@@ -59,7 +58,7 @@ const int doorServoPin = 6;
 const int flagServoPin = 5;
 const int directionPin = 13;
 const int throttlePin = 11;
-const int distancePin = A1;
+const int distancePin = A4;
 const int boxSwitchPin  = 2;
 const int debugPin = 4;
 
@@ -72,6 +71,7 @@ long randCheck = 1;               // Random check when not activated
 boolean hasAlreadyChecked = true; // Set when box has checked the switch (peeked at it)
 boolean interrupted = false;      // Is set to true when the switch has been changed while doing something. Allows for a quick check in the loop() for what we should do next
 
+//Distance detection
 int lastDistance = 0;             // Last measured distance
 int threshold = 200;              // Distance threshold
 unsigned long timer;              // Distance timer
@@ -82,8 +82,6 @@ int impatientThresholdCount = 0;  // How may times was the switch operated in sh
 boolean impatient = false;        // is the box impatient
 unsigned long activatedTimestamp; // When was the box last activated
 
-
-Distance distance = Distance();
 MotorControl motor = MotorControl();
 ServoControl arm = ServoControl("arm");
 ServoControl door = ServoControl("door");
@@ -114,7 +112,7 @@ void setup() {
 
   bouncer.attach(boxSwitchPin);
   motor.attach(directionPin, throttlePin);
-  distance.attach(2);
+  //distance.attach(2);
   arm.attach(&bouncer, armServoPin, POS_ARM_HOME, POS_SWITCH_ARM);
   door.attach(&bouncer, doorServoPin, POS_DOOR_HOME, POS_DOOR_FULL_OPEN);
   flag.attach(&bouncer, flagServoPin, POS_FLAG_HIDDEN, POS_FLAG_RAISED);
@@ -129,52 +127,47 @@ void setup() {
 /**
  * A "soft" delay function - This function can be interrupted by manual switch change.
  * If interrupted the method returns early and sets the interruped state variable to true.
+ * The soft delay function returns the value of the switch
  */
-void softDelay(int msec) {
+int softDelay(int msec) {
   Sprint(F("Delaying for "));
   Sprint(msec);
   Sprintln(F(" msec...")); 
   bouncer.update();
   int val = bouncer.read();
+  int current_value;
   long time_counter = 0;  
   do {
     delay(1);
     time_counter++;
     bouncer.update();
-    int current_value = bouncer.read();
+    current_value = bouncer.read();
     if (current_value != val) {
       Sprintln(F("/!\\[Soft Delay] Interrupted - The switch was operated while I was waiting on purpose !"));
       interrupted = true;
       break;
     }
   } while(time_counter <= msec);
+  return current_value;
 }
 
 /**
  * Detect movement inside a given threshold
  */
-boolean detect() {
+boolean detect(int detectionTime) {
   int currentDistance;
-  delay(1200);    //wait to stabilize sensor readings after opening the door 
-  lastDistance = analogRead(distancePin);
+  delay(1200);    //wait to stabilize sensor readings after opening the door   
   timer = millis();
   // wait for movement that exceeds threshold or if timer expires (5 sec),
-  while(millis() - timer <= 5000) {
-    currentDistance = analogRead(distancePin);
-    Sprint(F("currentDistance:"));
-    Sprint(currentDistance);
-    Sprint(F(" lastDistance: "));
-    Sprintln(lastDistance);
-    delay(500);
-    //Does the current distance deviate from the last distance by more than the threshold?        
-    if ((currentDistance > lastDistance + threshold || currentDistance < lastDistance - threshold)) {
-      Sprint(F("Detected! currentDistance:"));
-      Sprint(currentDistance);
-      Sprint(F(" lastDistance: "));
-      Sprintln(lastDistance);
+  while(millis() - timer <= detectionTime - 1200) {
+    currentDistance = analogRead(distancePin);        
+    Sprint(F("Current Distance"));
+    Sprintln(currentDistance);
+    if(currentDistance >= 400) { // The users hand is near the switch!
+      Sprintln(F("Detected!"));
       return true;
-    }
-    lastDistance = currentDistance;
+    }    
+    delay(500);
   }
   return false;
 }
@@ -251,7 +244,7 @@ void flipSwitch(int msec = 0) {
 }
 
 // Go near the arm, but not as close as to push the switch, and then retracts a bit
-void tryFail(int msec = 5) {  
+void tryFail(int msec = 0) {  
   interrupted = arm.move(POS_ARM_NEAR_SWITCH, msec);
   interrupted = arm.move(POS_ARM_NEAR_SWITCH + 7, msec); 
 }
@@ -262,7 +255,7 @@ void goStealthCheck() {
   interrupted = arm.move(POS_ARM_NEAR_SWITCH + 7, 30);  
 }
 
-void openDoorNija(int msec = 30) {
+void openDoorNinja(int msec = 0) {
   interrupted = door.move(POS_DOOR_CHECK_NINJA, msec);
 }
 
@@ -285,7 +278,7 @@ void backHome() {
 }
 
 // Open the lid to see out
-void goCheck(int msec = 10) {  
+void goCheck(int msec = 0) {  
   interrupted = arm.move(POS_ARM_PEEK, msec); 
 }
 
@@ -326,7 +319,7 @@ void waveflag(int times) {
 /* ------------------------------------ */
 
 // Go out and flip that switch the user just
-void goFlipThatSwitch(int msec = 0) { 
+void goOpenDoorAndFlipThatSwitch(int msec = 0) { 
   if (!interrupted) openDoorMedium(msec);
   if (!interrupted) flipSwitch(msec);
 }
@@ -342,7 +335,7 @@ void driveAway(){
     if (!interrupted) motor.halt();
   }
   motor.halt();
-  if (!interrupted) goFlipThatSwitch();  
+  if (!interrupted) goOpenDoorAndFlipThatSwitch();  
 }
 
 void whiteflag() 
@@ -351,84 +344,84 @@ void whiteflag()
   if (!interrupted) openDoorFull();
   if (!interrupted) waveflag(7);
   if (!interrupted) softDelay(500);
-  if (!interrupted) goFlipThatSwitch();   
+  if (!interrupted) flipSwitch();   
 }
 
 // Check once, wait, then flip the switch
 void check() {
   if (!interrupted) openDoorMedium();
-  if (!interrupted) goCheck();
+  if (!interrupted) goCheck(random(0, 10));
   if (!interrupted) softDelay(1000);
-  if (!interrupted) goFlipThatSwitch();
+  if (!interrupted) goOpenDoorAndFlipThatSwitch();
 }
 
 // Check, return back home, then flip
 void checkReturn() {
   if (!interrupted) openDoorMedium();
-  if (!interrupted) goCheck();
+  if (!interrupted) goCheck(random(0,10));
   if (!interrupted) softDelay(1500);
   if (!interrupted) backHome();
   if (!interrupted) softDelay(600);
-  if (!interrupted) goFlipThatSwitch();
+  if (!interrupted) goOpenDoorAndFlipThatSwitch();
 }
 
 // Multi tries. At the end, succeeds...
 void multiTry() {
   if (!interrupted) openDoorMedium();
-  if (!interrupted) tryFail();
+  if (!interrupted) tryFail(5);
   if (!interrupted) softDelay(500);
-  if (!interrupted) tryFail();
+  if (!interrupted) tryFail(5);
   if (!interrupted) softDelay(500);  
   if (!interrupted) backHome();
   if (!interrupted) softDelay(200);
-  if (!interrupted) goFlipThatSwitch();
+  if (!interrupted) goOpenDoorAndFlipThatSwitch();
 }
 
 // Check once slowly, return, check again, return to stealth position, then flip
 void checkCheckReturn() { //not ok
-  if (!interrupted) openDoorNija();
+  if (!interrupted) openDoorNinja(30);
   if (!interrupted) openDoorMedium();
   if (!interrupted) goStealthCheck();
   if (!interrupted) softDelay(1000);
   if (!interrupted) backHome();
   if (!interrupted) closeDoor();
   if (!interrupted) openDoorMedium();
-  if (!interrupted) goCheck();
+  if (!interrupted) goCheck(10);
   if (!interrupted) backHome();
   if (!interrupted) closeDoor();
   if (!interrupted) softDelay(700);
-  if (!interrupted) openDoorNija();
+  if (!interrupted) openDoorNinja(30);
   if (!interrupted) goStealthCheck();
   if (!interrupted) softDelay(500);
-  if (!interrupted) goFlipThatSwitch();
+  if (!interrupted) goOpenDoorAndFlipThatSwitch();
 }
 
 void afraid() {
   if (!interrupted) openDoorMedium();
-  if (!interrupted) tryFail(0);  
-  if (!interrupted) goCheck(0);
+  if (!interrupted) tryFail();  
+  if (!interrupted) goCheck();
   if (!interrupted) backHome();
   if (!interrupted) closeDoor();
   if (!interrupted) softDelay(1000);
   if (!interrupted) openDoorMedium();
-  if (!interrupted) goFlipThatSwitch(5);
+  if (!interrupted) flipSwitch(5);
 }
 
 // #OhWait 
 void ohWait() {
   if (!interrupted) openDoorMedium();
-  if (!interrupted) tryFail(0);
+  if (!interrupted) tryFail();
   if (!interrupted) backHome();
   if (!interrupted) openDoorMedium();
   if (!interrupted) softDelay(700);
   if (!interrupted) goCheck(2); // Woops. Forgot something ?
   if (!interrupted) softDelay(1000);
-  if (!interrupted) goFlipThatSwitch(15);
+  if (!interrupted) goOpenDoorAndFlipThatSwitch(15);
 }
 
 void matrix() {
   if (!interrupted) openDoorMedium();
-  if (!interrupted) goCheck();  
+  if (!interrupted) goCheck(10);  
   if (!interrupted) flipSwitch(30);
   if (!interrupted) softDelay(300);  
 }
@@ -441,11 +434,11 @@ void crazyDoor() {
   if (!interrupted) softDelay(500);  
   if (!interrupted) closeDoor();  
   if (!interrupted) openDoorFull();      
-  if (!interrupted) goFlipThatSwitch(15);  
+  if (!interrupted) flipSwitch(15);  
 }
 
 void crazySlow() { //ok  
-  if (!interrupted) goFlipThatSwitch(30);  
+  if (!interrupted) goOpenDoorAndFlipThatSwitch(30);  
 }
 
 void flappingAround() {
@@ -455,7 +448,7 @@ void flappingAround() {
     if (!interrupted) closeDoor();    
     if (!interrupted) softDelay(200);         
   }
-  if (!interrupted) goFlipThatSwitch();   
+  if (!interrupted) goOpenDoorAndFlipThatSwitch();   
 }
 
 void lowFlappingAround() {
@@ -465,20 +458,20 @@ void lowFlappingAround() {
     if (!interrupted) closeDoor();        
   }  
   if (!interrupted) softDelay(300);         
-  if (!interrupted) goFlipThatSwitch();   
+  if (!interrupted) goOpenDoorAndFlipThatSwitch();   
 }
 
 void vibrating() {
   if (!interrupted) openDoorMedium();
-  if (!interrupted) tryFail(0);  
-  if (!interrupted) tryFail(0);
-  if (!interrupted) tryFail(0);
-  if (!interrupted) tryFail(0);
-  if (!interrupted) tryFail(0);
-  if (!interrupted) tryFail(0);
-  if (!interrupted) tryFail(0);
+  if (!interrupted) tryFail();  
+  if (!interrupted) tryFail();
+  if (!interrupted) tryFail();
+  if (!interrupted) tryFail();
+  if (!interrupted) tryFail();
+  if (!interrupted) tryFail();
+  if (!interrupted) tryFail();
   if (!interrupted) backHome();
-  if (!interrupted) goFlipThatSwitch();  
+  if (!interrupted) goOpenDoorAndFlipThatSwitch();  
 }
 
 void moveBackAndForth() {  
@@ -497,21 +490,21 @@ void moveBackAndForth() {
     if (!interrupted) motor.halt();
   }  
   motor.halt();
-  if (!interrupted) openDoorNija();  
-  if (!interrupted) goFlipThatSwitch();  
+  if (!interrupted) openDoorNinja(30);  
+  if (!interrupted) goOpenDoorAndFlipThatSwitch();  
 }
 
 void turnOffThenWait() {  
   arm.interruptable(false);
-  if (!interrupted) goFlipThatSwitch(0);
-  if (!interrupted) goCheck(0);
+  if (!interrupted) goOpenDoorAndFlipThatSwitch(0);
+  if (!interrupted) goCheck();
   arm.interruptable(true);
   if (!interrupted) softDelay(2000);  
 }
 
 void turnOffwaitAndFlipDoor() {
   arm.interruptable(false);
-  if (!interrupted) goFlipThatSwitch(0);  
+  if (!interrupted) goOpenDoorAndFlipThatSwitch(0);  
   int i;
   for(i = 0; i < 3; i++) {
     if (!interrupted) openDoorFull(0);    
@@ -523,20 +516,44 @@ void turnOffwaitAndFlipDoor() {
 
 void angryTurnOff() {
   arm.interruptable(false);
-  goFlipThatSwitch();  
+  goOpenDoorAndFlipThatSwitch();  
   backHome();
-  goFlipThatSwitch();  
+  goOpenDoorAndFlipThatSwitch();  
   backHome();
-  goFlipThatSwitch();
+  goOpenDoorAndFlipThatSwitch();
   arm.move(POS_ARM_HOME, 0);
   arm.interruptable(true);
   if (!interrupted) softDelay(300);
   flag.isHome(false);  
   openDoorFull();
   waveflag(7);  
+  flipSwitch();
 }
 
-int randomCheck() {
+/**
+ * TODO when user is detected
+ * 1. drive away
+ * 2. flap door
+ * 3. ??
+ * 
+ */
+//working debug test
+void turnOffIfUserIsDetected() {
+  int i;
+  for (i = 0; i < random(3, 5); i++) {
+    openDoorMedium(15);
+    flipSwitch();
+    backHome();    
+    if (detect(10000)) {
+      goCheck(random(0, 30));           
+      if(softDelay(5000) == LOW) {
+        break;    
+      }      
+    }
+  }  
+}
+
+void randomCheck() {
   hasAlreadyChecked = true;
   arm.isHome(false);         
   if (!interrupted) arm.reattach();
@@ -544,6 +561,7 @@ int randomCheck() {
   if (!interrupted) goCheck(5);
   if (!interrupted) softDelay(1000);      
 }
+
 
 void loop() {
   // Update the switch position
@@ -579,9 +597,9 @@ void loop() {
       impatientCount++;
       Sprint(impatientCount);
       Sprintln(F(" time!"));
-    } else {
+    } else if (!impatient && (millis() - activatedTimestamp <= IMPATIENT_INTERVAL_TIME)) { 
       //increase impatient trigger count if box is operated repeatedly in interval
-      //if (!impatient && (millis() - activatedTimestamp <= IMPATIENT_INTERVAL_TIME)) {      
+      //     
       //TODO activate threshold as soon as fixed standalone problem    
       impatientThresholdCount++;
       Sprint(F("Getting impatient... "));
@@ -619,10 +637,6 @@ void loop() {
       resetToNormalMode(); 
     }  
 
-
-    
-    //selectedBehaviour = 12;
-    
     Sprint(F("-------- Starting behaviour: ["));
     Sprint(selectedBehaviour);
     Sprintln(F("]"));
@@ -630,7 +644,7 @@ void loop() {
     switch(selectedBehaviour) { 
       case 1: 
         Sprintln(F("Normal flip"));
-        goFlipThatSwitch(); break;
+        goOpenDoorAndFlipThatSwitch(); break;
       case 2: 
         Sprintln(F("Check"));  
         check(); break;
@@ -676,6 +690,9 @@ void loop() {
       case 17: //should i really include this in the normal operaion mode? it's a special gimick      
         Sprintln(F("White flag"));
         whiteflag(); break;         
+      case 18:
+        Sprintln(F("Measure Distance"));
+        turnOffIfUserIsDetected(); break;    
       case 100:
         Sprintln(F("Vibrating"));      
         vibrating(); break;  
@@ -687,7 +704,7 @@ void loop() {
         angryTurnOff(); break;
       default: 
         Sprintln(F("Default"));
-        goFlipThatSwitch(); break;   
+        goOpenDoorAndFlipThatSwitch(); break;   
       } 
       //reset the interrupted state - i'm done now...
       interrupted = false; 
@@ -696,7 +713,7 @@ void loop() {
   arm.waitAndDetatch();
   door.waitAndDetatch();
   flag.waitAndDetatch();  
-  Sprintln(F("end of loop, all detatched..."));
+  //Sprintln(F("end of loop, all detatched..."));
   
   randCheck = random(1, 500000);  
 }
