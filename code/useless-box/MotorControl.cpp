@@ -8,8 +8,8 @@
 MotorControl::MotorControl() {}
 
 void MotorControl::forward(int speed){
-  //digitalWrite(directionPin, HIGH); //Establishes LEFT direction of Channel B  
-  //analogWrite(throttlePin, speed);   //Spins the motor on Channel B at half speed
+  digitalWrite(directionPin, HIGH); //Establishes LEFT direction of Channel B  
+  analogWrite(throttlePin, speed);   //Spins the motor on Channel B at half speed
 }
 
 void MotorControl::attach(int directionPin, int throttlePin) {
@@ -20,8 +20,8 @@ void MotorControl::attach(int directionPin, int throttlePin) {
 
 void MotorControl::backward(int speed)
 {
-  //digitalWrite(directionPin, LOW); //Establishes LEFT direction of Channel B  
-  //analogWrite(throttlePin, speed);   //Spins the motor on Channel B at half speed
+  digitalWrite(directionPin, LOW); //Establishes LEFT direction of Channel B  
+  analogWrite(throttlePin, speed);   //Spins the motor on Channel B at half speed
 }
 
 void MotorControl::halt()

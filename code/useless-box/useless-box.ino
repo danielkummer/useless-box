@@ -596,21 +596,15 @@ void angryTurnOff() {
 //working debug test
 void turnOffIfUserIsDetected() {
   int i;
-  bool detectedOnce = false;
-  for (i = 0; i < random(3, 5); i++) {
+    for (i = 0; i < random(3, 5); i++) {
     openDoorMedium(15);
     flipSwitch();
     backHome();    
-    //close early if nothing happens
-    if (!detectedOnce && i > 2) {
-      break;
-    }    
-    if (detect(10000)) {      
-      detectedOnce = true;
-      goCheck(random(0, 30));           
-      if(softDelay(5000) == LOW) {
+    if (detect(10000)) {            
+      goCheck(random(0, 30));                       
+    }
+    if(softDelay(5000) == LOW) {
         break;    
-      }      
     }
   }  
 }
