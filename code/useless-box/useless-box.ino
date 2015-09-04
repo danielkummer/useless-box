@@ -1,3 +1,5 @@
+
+
 #define ENABLE_PRINT
 
 #ifdef ENABLE_PRINT
@@ -12,6 +14,7 @@
 
 #include <Servo.h>
 #include <Bounce2.h>
+#include <Adafruit_NeoPixel.h>
 
 #include "MotorControl.h"
 #include "ServoControl.h"
@@ -27,15 +30,15 @@
 #define POS_ARM_CHECK_NINJA (MIN_ARM_DEG + 20) 
 #define POS_ARM_NEAR_SWITCH (MAX_ARM_DEG - 50)
 
-#define MIN_DOOR_DEG 100
+#define MIN_DOOR_DEG 95
 #define MAX_DOOR_DEG 40
 #define POS_DOOR_HOME MIN_DOOR_DEG
-#define POS_DOOR_MEDIUM_OPEN (POS_DOOR_HOME - 30) //TODO medium is low and ninja is very high open... not really good, ninja should be so low that the arm has to push through the door
+#define POS_DOOR_MEDIUM_OPEN (POS_DOOR_HOME - 32) //TODO medium is low and ninja is very high open... not really good, ninja should be so low that the arm has to push through the door
 #define POS_DOOR_FULL_OPEN MAX_DOOR_DEG
-#define POS_DOOR_CHECK_NINJA (POS_DOOR_HOME - 70)
+#define POS_DOOR_CHECK_NINJA (POS_DOOR_HOME - 20)
 #define POS_DOOR_FLAP POS_DOOR_HOME - 20
 
-#define MIN_FLAG_DEG 60
+#define MIN_FLAG_DEG 55
 #define MAX_FLAG_DEG 160
 #define POS_FLAG_HIDDEN MIN_FLAG_DEG
 #define POS_FLAG_RAISED MAX_FLAG_DEG
@@ -46,9 +49,12 @@
 // the delay between the arm hitting the switcha and the switch reporting a change in value 
 #define MECANIC_DELAY_SWITCH 70     // 70 msec to acknowledge a hit
 
-#define IMPATIENT_INTERVAL_THRESHOLD 5  //times the interval must be triggered before impatient mode is activated
+#define IMPATIENT_INTERVAL_THRESHOLD 7  //times the interval must be triggered before impatient mode is activated
 const long IMPATIENT_INTERVAL_TIME = 20000;
 #define NUM_MAX_IMPATIENT_ACTION 7      //number of impatient actions - while the box stays in impatient mode
+
+#define IMPATIENT_COLOR_STEP (255 / NUM_MAX_IMPATIENT_ACTION)
+
 
 #define NUM_BEHAVIOURS 19
 
@@ -61,6 +67,8 @@ const int throttlePin = 11;
 const int distancePin = A4;
 const int boxSwitchPin  = 2;
 const int debugPin = 4;
+
+#define PIXEL_PIN 10
 
 // Operation variables
 Bounce bouncer = Bounce();
@@ -87,18 +95,27 @@ ServoControl arm = ServoControl("arm");
 ServoControl door = ServoControl("door");
 ServoControl flag = ServoControl("flag");
 
-/**
- * Simple blink method for debug purposes
- */
-void debugBlink(int times = 3, int wait = 200) {
-  /*int i;
-  for (i = 0; i < times; i++) {
-    digitalWrite(debugPin, HIGH);
-    delay(wait);
-    digitalWrite(debugPin, LOW);  
-    delay(wait);
-  }*/  
-}
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(2, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
+
+uint32_t black = pixels.Color(0, 0, 0);
+uint32_t red =  pixels.Color(255, 0, 0);
+
+uint32_t yellow = pixels.Color(255, 194, 0);
+uint32_t orange = pixels.Color(255,146,0);
+uint32_t orangeRed = pixels.Color(255,65,0);
+ 
+uint32_t blue = pixels.Color(11,97,164);
+
+uint32_t impatientColors[] = {
+  pixels.Color(255, 194, 0), //yellow
+  pixels.Color(255,146,0),   //orange
+  pixels.Color(255,65,0),    //orangeRed
+  pixels.Color(234,0,55),    //purplered
+  pixels.Color(255, 0, 0),
+  pixels.Color(255, 0, 0),
+  pixels.Color(11,97,164)     //blue  
+};
+
 
 void setup() {  
   pinMode(boxSwitchPin, INPUT);
@@ -118,9 +135,11 @@ void setup() {
   flag.attach(&bouncer, flagServoPin, POS_FLAG_HIDDEN, POS_FLAG_RAISED);
   
   activatedTimestamp = IMPATIENT_INTERVAL_TIME + 1;
- 
-  //debug - I'm able to detect arduino resets like this...
-  debugBlink(3, 1000); 
+
+  //initializeneopixels
+  pixels.begin();
+  pixels.show();
+  pixels.setBrightness(255); 
   randomSeed(analogRead(0));      
 }
 
@@ -167,7 +186,7 @@ boolean detect(int detectionTime) {
       Sprintln(F("Detected!"));
       return true;
     }    
-    delay(500);
+    delay(50);
   }
   return false;
 }
@@ -232,6 +251,40 @@ int determineImpatientBehaviour() {
       break;
   }  
   return result;
+}
+
+void setRgbColor(byte red, byte green, byte blue) {
+  setColor(pixels.Color(red, green, blue));
+}
+
+void setColor(uint32_t color) {
+  pixels.setPixelColor(0, color); 
+  pixels.setPixelColor(1, color); 
+  pixels.show();
+}
+
+void pulseColor(uint32_t color, byte times) {
+  for(byte i = 0; i < times; i++) {
+    setColor(color);
+    delay(100);
+    setColor(black);
+    delay(100);
+  }
+}
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t wheel(byte wheelpos) {
+  wheelpos = 255 - wheelpos;
+  if(wheelpos < 85) {
+    return pixels.Color(255 - wheelpos * 3, 0, wheelpos * 3);
+  }
+  if(wheelpos < 170) {
+    wheelpos -= 85;
+    return pixels.Color(0, wheelpos * 3, 255 - wheelpos * 3);
+  }
+  wheelpos -= 170;
+  return pixels.Color(wheelpos * 3, 255 - wheelpos * 3, 0);
 }
 
 /* ------------------------------- */
@@ -303,13 +356,14 @@ void hideflag(int msec = 0) {
 void waveflag(int times) {
   byte i;
   raiseflag();  
-  softDelay(100);
+  delay(100);
   for (i = 0; i < times; i++) {    
     tiltflag();
-    softDelay(15);
+    delay(15);    
+    //door.move(POS_DOOR_FULL_OPEN, 0); //damn this hack
     raiseflag();    
-  }
-  softDelay(70);
+  }  
+  delay(70);
   hideflag();  
 }
 
@@ -330,7 +384,7 @@ void driveAway(){
   if (!interrupted) softDelay(2000);  
   if(!interrupted && detect(3000)) {
     Sprintln(F("Detected movement!"));
-    if (!interrupted) motor.forward(100);
+    if (!interrupted) motor.backward(100);
     if (!interrupted) softDelay(800);
     if (!interrupted) motor.halt();
   }
@@ -341,9 +395,9 @@ void driveAway(){
 void whiteflag() 
 {  
   flag.isHome(false);  
-  if (!interrupted) openDoorFull();
-  if (!interrupted) waveflag(7);
-  if (!interrupted) softDelay(500);
+  openDoorFull();
+  waveflag(7);
+  softDelay(500);
   if (!interrupted) flipSwitch();   
 }
 
@@ -403,8 +457,8 @@ void afraid() {
   if (!interrupted) backHome();
   if (!interrupted) closeDoor();
   if (!interrupted) softDelay(1000);
-  if (!interrupted) openDoorMedium();
-  if (!interrupted) flipSwitch(5);
+  if (!interrupted) openDoorMedium(20);
+  if (!interrupted) flipSwitch(15);
 }
 
 // #OhWait 
@@ -427,14 +481,14 @@ void matrix() {
 }
 
 void crazyDoor() {
-  if (!interrupted) openDoorMedium(7);
+  if (!interrupted) openDoorMedium(random(7,15));
   if (!interrupted) closeDoor();
   if (!interrupted) softDelay(700);
-  if (!interrupted) openDoorFull();    
+  if (!interrupted) openDoorFull(random(0,10));    
   if (!interrupted) softDelay(500);  
   if (!interrupted) closeDoor();  
-  if (!interrupted) openDoorFull();      
-  if (!interrupted) flipSwitch(15);  
+  if (!interrupted) openDoorFull(random(0,20));      
+  if (!interrupted) flipSwitch(random(5,20));  
 }
 
 void crazySlow() { //ok  
@@ -482,7 +536,7 @@ void moveBackAndForth() {
   if (!interrupted) motor.forward(100);  
   if (!interrupted) softDelay(600); 
   if (!interrupted) motor.backward(100);
-  if (!interrupted) softDelay(600); 
+  if (!interrupted) softDelay(700); 
   if(!interrupted && detect(3000)) {
     Sprintln(F("Detected movement!"));
     if (!interrupted) motor.forward(100);
@@ -524,9 +578,11 @@ void angryTurnOff() {
   arm.move(POS_ARM_HOME, 0);
   arm.interruptable(true);
   if (!interrupted) softDelay(300);
+  door.move(POS_DOOR_FULL_OPEN, 0);
   flag.isHome(false);  
-  openDoorFull();
+  //openDoorFull();
   waveflag(7);  
+  hideflag();
   flipSwitch();
 }
 
@@ -540,11 +596,17 @@ void angryTurnOff() {
 //working debug test
 void turnOffIfUserIsDetected() {
   int i;
+  bool detectedOnce = false;
   for (i = 0; i < random(3, 5); i++) {
     openDoorMedium(15);
     flipSwitch();
     backHome();    
-    if (detect(10000)) {
+    //close early if nothing happens
+    if (!detectedOnce && i > 2) {
+      break;
+    }    
+    if (detect(10000)) {      
+      detectedOnce = true;
       goCheck(random(0, 30));           
       if(softDelay(5000) == LOW) {
         break;    
@@ -566,13 +628,13 @@ void randomCheck() {
 void loop() {
   // Update the switch position
   bouncer.update();
-  activated = bouncer.read();  
+  activated = bouncer.read();
 
   //do i need this?
-  /*if (flag.isHome() == false) {    
+  if (flag.isHome() == false) {    
     Sprintln(F("Hiding flag"));
     hideflag();        
-  } else*/
+  } else
   if (arm.isHome() == false) {    
     Sprintln(F("Going back home"));
     backHome();        
@@ -607,8 +669,7 @@ void loop() {
       Sprint(F(" of "));
       Sprintln(IMPATIENT_INTERVAL_THRESHOLD);
       Sprint(F("Time difference is: "));
-      Sprintln(millis() - activatedTimestamp);
-      debugBlink(impatientThresholdCount);      
+      Sprintln(millis() - activatedTimestamp);      
     }
     
     //update activated after impatient check
@@ -618,21 +679,22 @@ void loop() {
     if (!impatient && impatientThresholdCount >= IMPATIENT_INTERVAL_THRESHOLD ) {
       setImpatientMode();
       //TODO: Debug led, remove
-      debugBlink(5, 70);  
+      pulseColor(red, 3);
       digitalWrite(debugPin, HIGH);
     }
 
-    //use specific moves in impatient mode 
+    //use specific moves in impatient mode and set the correct color
     if (impatient) {
-      selectedBehaviour = determineImpatientBehaviour();    
+      selectedBehaviour = determineImpatientBehaviour(); 
+      setColor(impatientColors[impatientCount % NUM_MAX_IMPATIENT_ACTION]); 
     } else {      
       selectedBehaviour  = determineNormalBehaviour();
-    }    
+      setColor(wheel(random(0,255)));       
+    } 
+    
 
         //reset to normal mode after NUM_MAX_IMPATIENT_ACTION actions have been performed;
     if(impatient && impatientCount >= NUM_MAX_IMPATIENT_ACTION) { 
-      //TODO: Debug led, remove
-      debugBlink(5, 70);  
       digitalWrite(debugPin, LOW);
       resetToNormalMode(); 
     }  
@@ -687,9 +749,9 @@ void loop() {
       case 16:
         Sprintln(F("long wait after turnoff"));
         turnOffwaitAndFlipDoor(); break; 
-      case 17: //should i really include this in the normal operaion mode? it's a special gimick      
-        Sprintln(F("White flag"));
-        whiteflag(); break;         
+      //case 17: //should i really include this in the normal operaion mode? it's a special gimick      
+      //  Sprintln(F("White flag"));
+      //  whiteflag(); break;         
       case 18:
         Sprintln(F("Measure Distance"));
         turnOffIfUserIsDetected(); break;    
