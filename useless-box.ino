@@ -12,6 +12,10 @@
 
 #include <Servo.h>
 #include <Bounce2.h>
+#include <Adafruit_NeoPixel.h>
+#ifdef __AVR__
+  #include <avr/power.h>
+#endif
 
 #include "MotorControl.h"
 #include "ServoControl.h"
@@ -47,7 +51,8 @@
 #define MECANIC_DELAY_SWITCH 70     // 70 msec to acknowledge a hit
 
 #define IMPATIENT_INTERVAL_THRESHOLD 5  //times the interval must be triggered before impatient mode is activated
-const long IMPATIENT_INTERVAL_TIME = 20000;
+const long IMPATIENT_INTERVAL_TIME = 10000;
+const long IMPATIENT_MODE_TIMEOUT = 30000;
 #define NUM_MAX_IMPATIENT_ACTION 7      //number of impatient actions - while the box stays in impatient mode
 
 #define NUM_BEHAVIOURS 19
@@ -61,6 +66,7 @@ const int throttlePin = 11;
 const int distancePin = A4;
 const int boxSwitchPin  = 2;
 const int debugPin = 4;
+const int neoPixelPin = 10;
 
 // Operation variables
 Bounce bouncer = Bounce();
@@ -87,6 +93,8 @@ ServoControl arm = ServoControl("arm");
 ServoControl door = ServoControl("door");
 ServoControl flag = ServoControl("flag");
 
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(2, neoPixelPin, NEO_GRB + NEO_KHZ800);
+
 /**
  * Simple blink method for debug purposes
  */
@@ -99,6 +107,8 @@ void debugBlink(int times = 3, int wait = 200) {
     delay(wait);
   }*/  
 }
+
+//uint32_t magenta = strip.Color(255, 0, 255);
 
 void setup() {  
   pinMode(boxSwitchPin, INPUT);
@@ -122,6 +132,7 @@ void setup() {
   //debug - I'm able to detect arduino resets like this...
   debugBlink(3, 1000); 
   randomSeed(analogRead(0));      
+  pixels.begin();
 }
 
 /**
@@ -341,10 +352,10 @@ void driveAway(){
 void whiteflag() 
 {  
   flag.isHome(false);  
-  if (!interrupted) openDoorFull();
-  if (!interrupted) waveflag(7);
-  if (!interrupted) softDelay(500);
-  if (!interrupted) flipSwitch();   
+  openDoorFull();
+  waveflag(7);
+  softDelay(500);
+  flipSwitch();   
 }
 
 // Check once, wait, then flip the switch
@@ -564,6 +575,11 @@ void randomCheck() {
 
 
 void loop() {
+
+  pixels.setPixelColor(0, pixels.Color(0,150,0)); // Moderately bright green color.
+  pixels.setPixelColor(1, pixels.Color(150,0,0)); // Moderately bright green color.
+  pixels.show(); // This sends the updated pixel color to the hardware.
+  
   // Update the switch position
   bouncer.update();
   activated = bouncer.read();  
@@ -611,9 +627,6 @@ void loop() {
       debugBlink(impatientThresholdCount);      
     }
     
-    //update activated after impatient check
-    activatedTimestamp = millis();
-
     // set to impatient mode if conditions are met
     if (!impatient && impatientThresholdCount >= IMPATIENT_INTERVAL_THRESHOLD ) {
       setImpatientMode();
@@ -630,12 +643,16 @@ void loop() {
     }    
 
         //reset to normal mode after NUM_MAX_IMPATIENT_ACTION actions have been performed;
-    if(impatient && impatientCount >= NUM_MAX_IMPATIENT_ACTION) { 
+    if((impatient && impatientCount >= NUM_MAX_IMPATIENT_ACTION) || (impatient && millis() - activatedTimestamp >= IMPATIENT_MODE_TIMEOUT)) { 
       //TODO: Debug led, remove
       debugBlink(5, 70);  
       digitalWrite(debugPin, LOW);
       resetToNormalMode(); 
     }  
+
+    //update activated after impatient check
+    activatedTimestamp = millis();
+
 
     Sprint(F("-------- Starting behaviour: ["));
     Sprint(selectedBehaviour);
