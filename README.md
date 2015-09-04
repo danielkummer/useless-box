@@ -1,41 +1,47 @@
-# useless-box
-A useless box is basically a machine which turns itself off. However, with a few additional servos, and a little programming, you're able to give the thing some "character" - and add a few surprises for the user...
+# Useless Box
+A useless box is basically a machine which turns itself off. However, with a few additional servos, and a little programming, you're able to blow some live into it and give it some "character" - as well as adding a few surprises for the user...
 
 ## Features / surprises
-
-My box can:
 
 * Control the door and "hand" separately
 * Detect the operator by using a distance sensor
 * Wave a white flag
-* Scoot away
+* Hop away
 
-I've used software debouncing of the switch because it's much easier to build and less to solder...
-Although the MotorShield is clearly overkill for this project it significally reduces the complexity of the required electronics knowledge (and soldering).
+I've used software debouncing of the switch because it's much easier than including additional wiring and parts.
+Although the MotorShield is clearly overkill for this project it reduces the complexity of the required electronics knowledge (and soldering) quite a bit.
 
 ## Hardware
 
-### Electronics
+### Electronics - Parts List
 
-The following electonics were used:
+The following parts were used:
 
-* Arduino UNO
-* [MotorShield](https://www.arduino.cc/en/Main/ArduinoMotorShieldR3)
-* 2 x Servo
-* 1 x Micro Servo
-* Geared DC Motor
-* 2x Flip Switch
-* 11.1v Battery ~ 1200 mAh
-* 10k Resistor (I used software debouncing)
-* Infrared based distance sensor
+| Amount | Part Type | Properties |
+|--------|-----------|------------|
+| 1 |	[Arduino Uno](https://www.arduino.cc/en/Main/arduinoBoardUno) | |
+| 1 | [MotorShield](https://www.arduino.cc/en/Main/ArduinoMotorShieldR3) | Rev3 |
+| 2 |	Basic Servo	| You should use a high-torque servo for the arm |
+| 1	| Micro Servo | |
+| 1	| Infrared Proximity Sensor [Sharp GP2Y0A21YK0F](http://www.sharpsma.com/webfm_send/1489) | 10 - 80 cm |
+| 1	| DC Motor | geared |
+| 1 | Metallic Toggle Switch | |
+| 1 | Plastic Power Switch | |
+| 1 |	LIPO Battery | 11.1v 1200mAh |
+| 1 | Resistor | 10k&#937; Pull-down for switch |
+| 1 | 5V UBEC DC-DC Converter | UBEC 5A Dynam DY-1016-5A |
+
+### Circuit
+
+![Circuit Diagram](fritzing/useless-box_schem.png)
 
 ### Material
 
-* Nice wooden box with enough space to fit everything into
-* Rubber band to force-close the lid
+* Wooden box with enough space to fit everything into
 * Some chipboard ~ 4mm to build the arm and mountings
-* Some hinges
-* Some cables
+* Rubber band to force-close the lid
+* Hinges
+* Cables
 
 ### Tools
 
@@ -44,11 +50,9 @@ The following electonics were used:
 * Sanding paper
 * Wood glue
 
-
-
 ## Operation
 
-My useless box fullfills of course the basic functionality of turning itself off.
+My useless box fulfills of course the basic functionality of turning itself off.
 But using a few additional pieces of equipment it can:
 
 * Drive away
@@ -60,4 +64,4 @@ But using a few additional pieces of equipment it can:
 The box has basically a fixed set of "moves" it can do to turn of the switch after it has been turned on. To make things a little more interesting, the moves are randomly used to surprise the operator.
 
 The whole code is quite easy - there's nothing special about it.
-I've created a few bases classes to control every periperal and another class "Moves" to implement the patterns. This is mainly because the basic arduino way of programming leads to lots of code duplication and unreadable code
+I've created a few bases classes to control every peripheral and another class "Moves" to implement the patterns. This is mainly because the basic Arduino way of programming leads to lots of code duplication and unreadable code
