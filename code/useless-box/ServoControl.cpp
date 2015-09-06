@@ -79,11 +79,11 @@ bool ServoControl::move(int degree) {
       if (strcmp(this->name, "arm") != 0 ) {              
         if (this->pos_max > this->pos_home) {
             //condition is inverted, only interrupt if not true
-           if (current_degree <= this->pos_max - 10 || current_degree >= this->pos_home + 10) {
+           if (current_degree <= this->pos_max - 5 || current_degree >= this->pos_home + 5) {
             interrupted = true;   
            }         
         } else {
-           if (current_degree >= this->pos_max - 10 || current_degree <= this->pos_home + 10) {
+           if (current_degree >= this->pos_max - 5 || current_degree <= this->pos_home + 5) {
             interrupted = true;
            }
         } 

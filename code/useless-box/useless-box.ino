@@ -1,4 +1,4 @@
-#define ENABLE_PRINT
+//#define ENABLE_PRINT
 
 #ifdef ENABLE_PRINT
   #define Sprintln(a) (Serial.println(a))
@@ -27,51 +27,52 @@
 #define POS_ARM_PEEK (MIN_ARM_DEG + 70)
 #define POS_ARM_CHECK_NINJA (MIN_ARM_DEG + 20) 
 #define POS_ARM_NEAR_SWITCH (MAX_ARM_DEG - 50)
-
+//-------------------------------------------------
 #define MIN_DOOR_DEG 95
 #define MAX_DOOR_DEG 40
 #define POS_DOOR_HOME MIN_DOOR_DEG
-#define POS_DOOR_MEDIUM_OPEN (POS_DOOR_HOME - 32) //TODO medium is low and ninja is very high open... not really good, ninja should be so low that the arm has to push through the door
+#define POS_DOOR_MEDIUM_OPEN (POS_DOOR_HOME - 32) 
 #define POS_DOOR_FULL_OPEN MAX_DOOR_DEG
 #define POS_DOOR_CHECK_NINJA (POS_DOOR_HOME - 20)
 #define POS_DOOR_FLAP POS_DOOR_HOME - 20
-
+//-------------------------------------------------
 #define MIN_FLAG_DEG 55
 #define MAX_FLAG_DEG 160
 #define POS_FLAG_HIDDEN MIN_FLAG_DEG
 #define POS_FLAG_RAISED MAX_FLAG_DEG
 #define POS_FLAG_TILTED (MAX_FLAG_DEG - 40)
-
-// the number of msec (approx.) for the servo to go one degree further
-#define MECANIC_SPEED_PER_DEGREE 2  // 2 msec to move 1 degree
-// the delay between the arm hitting the switcha and the switch reporting a change in value 
-#define MECANIC_DELAY_SWITCH 70     // 70 msec to acknowledge a hit
-
+//-------------------------------------------------
+// 
+#define MECANIC_SPEED_PER_DEGREE 2  // the number of msec (approx.) for the servo to go one degree further
+#define MECANIC_DELAY_SWITCH 70     // the delay between the arm hitting the switcha and the switch reporting a change in value 
+//-------------------------------------------------
 #define IMPATIENT_INTERVAL_THRESHOLD 7  //times the interval must be triggered before impatient mode is activated
-const long IMPATIENT_INTERVAL_TIME = 20000;
-const long IMPATIENT_MODE_TIMEOUT = 30000;
+#define IMPATIENT_INTERVAL_TIME 20000
+#define IMPATIENT_MODE_TIMEOUT 30000
 #define NUM_MAX_IMPATIENT_ACTION 7      //number of impatient actions - while the box stays in impatient mode
 
 
 #define NUM_BEHAVIOURS 19
 
-// Pins
-const int armServoPin = 9;
-const int doorServoPin = 6;
-const int flagServoPin = 5;
-const int directionPin = 13;
-const int throttlePin = 11;
-const int distancePin = A4;
-const int boxSwitchPin  = 2;
-const int debugPin = 4;
+/*
+ * I/O
+ */ 
+#define ARM_SERVO_PIN   9
+#define DOOR_SERVO_PIN  6
+#define FLAG_SERVO_PIN  5
+#define DIRECTION_PIN   13
+#define THROTTLE_PIN    11
+#define DISTANCE_PIN    A4
+#define BOX_SWITCH_PIN  2
+#define PIXEL_PIN       10
 
-#define PIXEL_PIN 10
-
-// Operation variables
+/*
+ * Operation
+ */ 
 Bounce bouncer = Bounce();
 int activated = LOW;
 
-int selectedBehaviour = 1;            // This is used to choose the next behaviour 
+int selectedBehaviour = 1;        // This is used to choose the next behaviour 
 long randCheck = 1;               // Random check when not activated
 boolean hasAlreadyChecked = true; // Set when box has checked the switch (peeked at it)
 boolean interrupted = false;      // Is set to true when the switch has been changed while doing something. Allows for a quick check in the loop() for what we should do next
@@ -85,51 +86,51 @@ unsigned long timer;              // Distance timer
 int impatientCount = 0;           // How many impatient actions were done
 int impatientThresholdCount = 0;  // How may times was the switch operated in short intervals
 boolean impatient = false;        // is the box impatient
-unsigned long activatedTimestamp; // When was the box last activated
+unsigned long activatedTimestamp; // When fwas the box last activated
 
 MotorControl motor = MotorControl();
 ServoControl arm = ServoControl("arm");
 ServoControl door = ServoControl("door");
 ServoControl flag = ServoControl("flag");
-
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(2, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
+/*
+ * Colors
+ */ 
 uint32_t black = pixels.Color(0, 0, 0);
 uint32_t red =  pixels.Color(255, 0, 0);
-
 uint32_t yellow = pixels.Color(255, 194, 0);
 uint32_t orange = pixels.Color(255,146,0);
 uint32_t orangeRed = pixels.Color(255,65,0);
- 
 uint32_t blue = pixels.Color(11,97,164);
-
 uint32_t impatientColors[] = {
   pixels.Color(255, 194, 0), //yellow
   pixels.Color(255,146,0),   //orange
   pixels.Color(255,65,0),    //orangeRed
   pixels.Color(234,0,55),    //purplered
-  pixels.Color(255, 0, 0),
-  pixels.Color(255, 0, 0),
-  pixels.Color(11,97,164)     //blue  
+  pixels.Color(255, 0, 0),   //red
+  pixels.Color(255, 0, 0),   //red
+  pixels.Color(255, 0, 0),   //red
+  pixels.Color(11,97,164)    //blue  
 };
 
-
+/*
+ * Setup
+ */ 
 void setup() {  
-  pinMode(boxSwitchPin, INPUT);
-  pinMode(directionPin, OUTPUT);  
-  pinMode(distancePin,INPUT);
-  pinMode(debugPin, OUTPUT);  
+  pinMode(BOX_SWITCH_PIN, INPUT);
+  pinMode(DIRECTION_PIN, OUTPUT);  
+  pinMode(DISTANCE_PIN,INPUT);
   
   Sbegin(9600);
   Sprintln(F("Started.")); 
   Sprintln(F("Initializing positions."));
 
-  bouncer.attach(boxSwitchPin);
-  motor.attach(directionPin, throttlePin);
-  //distance.attach(2);
-  arm.attach(&bouncer, armServoPin, POS_ARM_HOME, POS_SWITCH_ARM);
-  door.attach(&bouncer, doorServoPin, POS_DOOR_HOME, POS_DOOR_FULL_OPEN);
-  flag.attach(&bouncer, flagServoPin, POS_FLAG_HIDDEN, POS_FLAG_RAISED);
+  bouncer.attach(BOX_SWITCH_PIN);
+  motor.attach(DIRECTION_PIN, THROTTLE_PIN);
+  arm.attach(&bouncer, ARM_SERVO_PIN, POS_ARM_HOME, POS_SWITCH_ARM);
+  door.attach(&bouncer, DOOR_SERVO_PIN, POS_DOOR_HOME, POS_DOOR_FULL_OPEN);
+  flag.attach(&bouncer, FLAG_SERVO_PIN, POS_FLAG_HIDDEN, POS_FLAG_RAISED);
   
   activatedTimestamp = IMPATIENT_INTERVAL_TIME + 1;
 
@@ -174,16 +175,27 @@ boolean detect(int detectionTime) {
   int currentDistance;
   delay(1200);    //wait to stabilize sensor readings after opening the door   
   timer = millis();
+  //interrupt if bouncer value changes
   // wait for movement that exceeds threshold or if timer expires (5 sec),
+  bouncer.update();
+  int oldButtonValue = bouncer.read();
+  
   while(millis() - timer <= detectionTime - 1200) {
-    currentDistance = analogRead(distancePin);        
+    currentDistance = analogRead(DISTANCE_PIN);        
     Sprint(F("Current Distance"));
     Sprintln(currentDistance);
-    if(currentDistance >= 400) { // The users hand is near the switch!
+    if(currentDistance >= 380) { // The users hand is near the switch!
       Sprintln(F("Detected!"));
       return true;
     }    
     delay(500);
+
+    //exit loop if switch is on
+    /*bouncer.update();
+    int newButtonValue = bouncer.read();
+    if(oldButtonValue != newButtonValue && newButtonValue == HIGH) {
+      break;
+    }*/    
   }
   return false;
 }
@@ -198,9 +210,9 @@ void resetToNormalMode() {
   arm.reattach();
   door.reattach();    
   door.setHome(POS_DOOR_HOME);
-  door.isHome(false);
+  door.isHome(false);  
   arm.setHome(POS_ARM_HOME);    
-  arm.isHome(false);
+  arm.isHome(false);  
 }
 
 /**
@@ -394,7 +406,8 @@ void whiteflag()
   flag.isHome(false);  
   openDoorFull();
   waveflag(7);
-  softDelay(500);
+  flag.isHome(true);  
+  softDelay(500);  
   if (!interrupted) flipSwitch();   
 }
 
@@ -467,7 +480,7 @@ void ohWait() {
   if (!interrupted) softDelay(700);
   if (!interrupted) goCheck(2); // Woops. Forgot something ?
   if (!interrupted) softDelay(1000);
-  if (!interrupted) goOpenDoorAndFlipThatSwitch(15);
+  if (!interrupted) goOpenDoorAndFlipThatSwitch(random(0,15));
 }
 
 void matrix() {
@@ -559,7 +572,7 @@ void turnOffwaitAndFlipDoor() {
   int i;
   for(i = 0; i < 3; i++) {
     if (!interrupted) openDoorFull(0);    
-    if (!interrupted) openDoorMedium(7);      
+    if (!interrupted) openDoorMedium(5);      
   }  
   arm.interruptable(true);  
   if (!interrupted) softDelay(500);    
@@ -574,13 +587,16 @@ void angryTurnOff() {
   goOpenDoorAndFlipThatSwitch();
   arm.move(POS_ARM_HOME, 0);
   arm.interruptable(true);
-  if (!interrupted) softDelay(300);
-  door.move(POS_DOOR_FULL_OPEN, 0);
+  if (!interrupted) softDelay(300);  
+  door.move(POS_DOOR_FULL_OPEN, 0);  
   flag.isHome(false);  
   //openDoorFull();
   waveflag(7);  
-  hideflag();
-  flipSwitch();
+  hideflag();  
+  flag.isHome(true);  
+  //arm.move(POS_ARM_HOME, 0);   
+  //door.move(POS_DOOR_HOME, 0);
+  pulseColor(red, 3);
 }
 
 /**
@@ -596,9 +612,16 @@ void turnOffIfUserIsDetected() {
     for (i = 0; i < random(3, 5); i++) {
     openDoorMedium(15);
     flipSwitch();
-    backHome();    
-    if (detect(10000)) {            
-      goCheck(random(0, 30));                       
+    backHome();   
+    //TODO should turn off immediatly if turned on during detection 
+    if (detect(10000)) {        
+      bouncer.update();
+      if(bouncer.read() == HIGH) { 
+        flipSwitch();
+        backHome();   
+      } else {
+        goCheck(random(0, 15));                         
+      }      
     }
     if(softDelay(5000) == LOW) {
         break;    
@@ -615,17 +638,28 @@ void randomCheck() {
   if (!interrupted) softDelay(1000);      
 }
 
-
-void loop() {
-  // Update the switch position
+/*
+ * Loop
+ */ 
+void loop() {  
   bouncer.update();
   activated = bouncer.read();
 
-  //do i need this?
-  if (flag.isHome() == false) {    
+  //reset to normal mode after NUM_MAX_IMPATIENT_ACTION actions have been performed;
+  if(impatient && impatientCount >= NUM_MAX_IMPATIENT_ACTION) {       
+    resetToNormalMode(); 
+  }  
+
+  // set to impatient mode if conditions are met
+  if (!impatient && impatientThresholdCount >= IMPATIENT_INTERVAL_THRESHOLD ) {
+    setImpatientMode();
+    //TODO: Debug led, remove      
+  }  
+  
+  /*if (flag.isHome() == false) {    
     Sprintln(F("Hiding flag"));
     hideflag();        
-  } else
+  } else*/
   if (arm.isHome() == false) {    
     Sprintln(F("Going back home"));
     backHome();        
@@ -651,9 +685,7 @@ void loop() {
       Sprint(impatientCount);
       Sprintln(F(" time!"));
     } else if (!impatient && (millis() - activatedTimestamp <= IMPATIENT_INTERVAL_TIME)) { 
-      //increase impatient trigger count if box is operated repeatedly in interval
-      //     
-      //TODO activate threshold as soon as fixed standalone problem    
+      //increase impatient trigger count if box is operated repeatedly in interval   
       impatientThresholdCount++;
       Sprint(F("Getting impatient... "));
       Sprint(impatientThresholdCount);
@@ -661,15 +693,7 @@ void loop() {
       Sprintln(IMPATIENT_INTERVAL_THRESHOLD);
       Sprint(F("Time difference is: "));
       Sprintln(millis() - activatedTimestamp);      
-    }
-    
-    // set to impatient mode if conditions are met
-    if (!impatient && impatientThresholdCount >= IMPATIENT_INTERVAL_THRESHOLD ) {
-      setImpatientMode();
-      //TODO: Debug led, remove
-      pulseColor(red, 3);
-      digitalWrite(debugPin, HIGH);
-    }
+    }      
 
     //use specific moves in impatient mode and set the correct color
     if (impatient) {
@@ -679,97 +703,47 @@ void loop() {
       selectedBehaviour  = determineNormalBehaviour();
       setColor(wheel(random(0,255)));       
     } 
-    
-
-        //reset to normal mode after NUM_MAX_IMPATIENT_ACTION actions have been performed;
-    if(impatient && impatientCount >= NUM_MAX_IMPATIENT_ACTION) { 
-      //TODO: Debug led, remove
-      debugBlink(5, 70);  
-      digitalWrite(debugPin, LOW);
-      resetToNormalMode(); 
-    }  
 
     //update activated after impatient check
     activatedTimestamp = millis();
-
 
     Sprint(F("-------- Starting behaviour: ["));
     Sprint(selectedBehaviour);
     Sprintln(F("]"));
     Sprint(F("-------- "));
     switch(selectedBehaviour) { 
-      case 1: 
-        Sprintln(F("Normal flip"));
-        goOpenDoorAndFlipThatSwitch(); break;
-      case 2: 
-        Sprintln(F("Check"));  
-        check(); break;
-      case 3: 
-        Sprintln(F("Multi try"));
-        multiTry(); break;
-      case 4: 
-        Sprintln(F("Check and return"));
-        checkReturn(); break;
-      case 5: 
-        Sprintln(F("Check, check and return"));
-        checkCheckReturn(); break;
-      case 6: 
-        Sprintln(F("Afraid"));
-        afraid(); break;
-      case 7: 
-        Sprintln(F("Oh, wait"));
-        ohWait(); break;
-      case 8: 
-        Sprintln(F("Crazy slow"));
-        crazySlow(); break;        
-      case 9: 
-        Sprintln(F("Matrix"));
-        matrix(); break;
-      case 10: 
-        Sprintln(F("Crazy door"));
-        crazyDoor(); break;
-      case 11: 
-        Sprintln(F("Drive away"));
-        driveAway(); break;      
-      case 12:
-        Sprintln(F("Back and Forth"));
-        moveBackAndForth(); break;
-      case 14:
-        Sprintln(F("low flapping around"));
-        lowFlappingAround(); break;  
-      case 15:
-        Sprintln(F("turn off, wait"));
-        turnOffThenWait(); break;  
-      case 16:
-        Sprintln(F("long wait after turnoff"));
-        turnOffwaitAndFlipDoor(); break; 
-      //case 17: //should i really include this in the normal operaion mode? it's a special gimick      
-      //  Sprintln(F("White flag"));
-      //  whiteflag(); break;         
-      case 18:
-        Sprintln(F("Measure Distance"));
-        turnOffIfUserIsDetected(); break;    
-      case 100:
-        Sprintln(F("Vibrating"));      
-        vibrating(); break;  
-      case 101:
-        Sprintln(F("Flapping door around"));
-        flappingAround(); break;      
-      case 102:
-        Sprintln(F("Angry turn-off"));
-        angryTurnOff(); break;
-      default: 
-        Sprintln(F("Default"));
-        goOpenDoorAndFlipThatSwitch(); break;   
-      } 
-      //reset the interrupted state - i'm done now...
-      interrupted = false; 
-  } // end switch-if
-   
+      case 1: Sprintln(F("Normal flip")); goOpenDoorAndFlipThatSwitch(); break;
+      case 2: Sprintln(F("Check")); check(); break;
+      case 3: Sprintln(F("Multi try")); multiTry(); break;
+      case 4: Sprintln(F("Check and return")); checkReturn(); break;
+      case 5: Sprintln(F("Check, check and return")); checkCheckReturn(); break;
+      case 6: Sprintln(F("Afraid")); afraid(); break;
+      case 7: Sprintln(F("Oh, wait")); ohWait(); break;
+      case 8: Sprintln(F("Crazy slow")); crazySlow(); break;        
+      case 9: Sprintln(F("Matrix")); matrix(); break;
+      case 10: Sprintln(F("Crazy door")); crazyDoor(); break;
+      case 11: Sprintln(F("Drive away")); driveAway(); break;      
+      case 12: Sprintln(F("Back and Forth")); moveBackAndForth(); break;
+      case 14: Sprintln(F("low flapping around")); lowFlappingAround(); break;  
+      case 15: Sprintln(F("turn off, wait")); turnOffThenWait(); break;  
+      case 16: Sprintln(F("long wait after turnoff")); turnOffwaitAndFlipDoor(); break; 
+      //case 17:  Sprintln(F("White flag")); whiteflag(); break;         
+      case 18: Sprintln(F("Measure Distance")); turnOffIfUserIsDetected(); break;    
+      case 100: Sprintln(F("Vibrating")); vibrating(); break;  
+      case 101: Sprintln(F("Flapping door around")); flappingAround(); break;      
+      case 102: Sprintln(F("Angry turn-off")); angryTurnOff(); break;
+      default: Sprintln(F("Default")); goOpenDoorAndFlipThatSwitch(); break;   
+      }       
+      interrupted = false; //reset the interrupted state - i'm done now...
+  } // end switch-if   
+
+  //turn off leds after 20sec inactivity
+  if (millis() - activatedTimestamp >= 20000 ) {
+    setColor(black);
+  }
+  
   arm.waitAndDetatch();
   door.waitAndDetatch();
   flag.waitAndDetatch();  
-  //Sprintln(F("end of loop, all detatched..."));
-  
   randCheck = random(1, 500000);  
 }
