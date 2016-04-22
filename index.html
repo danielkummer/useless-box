@@ -47,54 +47,126 @@
 
       <section id="main_content">
         <h1>
-<a id="useless-box" class="anchor" href="#useless-box" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>useless-box</h1>
+<a id="useless-box" class="anchor" href="#useless-box" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Useless Box</h1>
 
-<p>A useless box is basically a machine which turns itself off. However, with a few additional servos, and a little programming, you're able to give the thing some "character" - and add a few surprises for the user...</p>
+<p>A useless box is basically a machine which turns itself off. However, with a few additional servos, and a little programming, you're able to blow some live into it and give it some "character" - as well as adding a few surprises for the user...</p>
 
 <h2>
-<a id="features--surprises" class="anchor" href="#features--surprises" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Features / surprises</h2>
+<a id="tldr" class="anchor" href="#tldr" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>TL;DR</h2>
 
-<p>My box can:</p>
+<p>A demo video of the box. Because of randomization the video doesn't include <em>all</em> different behavior patterns - there are more...</p>
+
+<p>[<img src="https://img.youtube.com/vi/xstKcBLtHTI/0.jpg" alt="Demo Video">](<a href="https://www.youtube.com/watch?v=xstKcBLtHTI">https://www.youtube.com/watch?v=xstKcBLtHTI</a></p>
+
+<h2>
+<a id="features--surprises" class="anchor" href="#features--surprises" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Features / Surprises</h2>
 
 <ul>
 <li>Control the door and "hand" separately</li>
 <li>Detect the operator by using a distance sensor</li>
 <li>Wave a white flag</li>
-<li>Scoot away</li>
+<li>Hop away</li>
+<li>Ambient light</li>
 </ul>
 
-<p>I've used software debouncing of the switch because it's much easier to build and less to solder...
-Although the MotorShield is clearly overkill for this project it significally reduces the complexity of the required electronics knowledge (and soldering).</p>
+<p>I've used software debouncing of the switch because it's much easier than including additional wiring and parts.
+Although the MotorShield is clearly overkill for this project it reduces the complexity of the required electronics knowledge (and soldering) quite a bit.</p>
 
 <h2>
 <a id="hardware" class="anchor" href="#hardware" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Hardware</h2>
 
 <h3>
-<a id="electronics" class="anchor" href="#electronics" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Electronics</h3>
+<a id="electronics---parts-list" class="anchor" href="#electronics---parts-list" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Electronics - Parts List</h3>
 
-<p>The following electonics were used:</p>
+<p>The following parts were used:</p>
 
-<ul>
-<li>Arduino UNO</li>
-<li><a href="https://www.arduino.cc/en/Main/ArduinoMotorShieldR3">MotorShield</a></li>
-<li>2 x Servo</li>
-<li>1 x Micro Servo</li>
-<li>Geared DC Motor</li>
-<li>2x Flip Switch</li>
-<li>11.1v Battery ~ 1200 mAh</li>
-<li>10k Resistor (I used software debouncing)</li>
-<li>Infrared based distance sensor</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Amount</th>
+<th>Part Type</th>
+<th>Properties</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><a href="https://www.arduino.cc/en/Main/arduinoBoardUno">Arduino Uno</a></td>
+<td></td>
+</tr>
+<tr>
+<td>1</td>
+<td><a href="https://www.arduino.cc/en/Main/ArduinoMotorShieldR3">MotorShield</a></td>
+<td>Rev3</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Basic Servo</td>
+<td>You should use a high-torque servo for the arm</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Micro Servo</td>
+<td></td>
+</tr>
+<tr>
+<td>1</td>
+<td>Infrared Proximity Sensor <a href="http://www.sharpsma.com/webfm_send/1489">Sharp GP2Y0A21YK0F</a>
+</td>
+<td>10 - 80 cm</td>
+</tr>
+<tr>
+<td>1</td>
+<td>DC Motor</td>
+<td>geared</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Metallic Toggle Switch</td>
+<td></td>
+</tr>
+<tr>
+<td>1</td>
+<td>Plastic Power Switch</td>
+<td></td>
+</tr>
+<tr>
+<td>1</td>
+<td>LIPO Battery</td>
+<td>11.1v 1200mAh</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Resistor</td>
+<td>10kΩ Pull-down for switch</td>
+</tr>
+<tr>
+<td>2</td>
+<td><a href="https://www.adafruit.com/category/168">NeoPixel</a></td>
+<td></td>
+</tr>
+<tr>
+<td>1</td>
+<td>5V UBEC DC-DC Converter</td>
+<td>UBEC 5A Dynam DY-1016-5A</td>
+</tr>
+</tbody>
+</table>
+
+<h3>
+<a id="circuit" class="anchor" href="#circuit" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Circuit</h3>
+
+<p><img src="images/useless-box_schem.png" alt="Circuit Diagram"></p>
 
 <h3>
 <a id="material" class="anchor" href="#material" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Material</h3>
 
 <ul>
-<li>Nice wooden box with enough space to fit everything into</li>
-<li>Rubber band to force-close the lid</li>
+<li>Wooden box with enough space to fit everything into</li>
 <li>Some chipboard ~ 4mm to build the arm and mountings</li>
-<li>Some hinges</li>
-<li>Some cables</li>
+<li>Rubber band to force-close the lid</li>
+<li>Hinges</li>
+<li>Cables</li>
 </ul>
 
 <h3>
@@ -110,11 +182,11 @@ Although the MotorShield is clearly overkill for this project it significally re
 <h2>
 <a id="operation" class="anchor" href="#operation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Operation</h2>
 
-<p>My useless box fullfills of course the basic functionality of turning itself off.
+<p>My useless box fulfills of course the basic functionality of turning itself off.
 But using a few additional pieces of equipment it can:</p>
 
 <ul>
-<li>Drive away</li>
+<li>"Hop" away</li>
 <li>Detect the users distance (and react to it)</li>
 <li>Wave a white flag - but without giving up of course :)</li>
 </ul>
@@ -125,7 +197,7 @@ But using a few additional pieces of equipment it can:</p>
 <p>The box has basically a fixed set of "moves" it can do to turn of the switch after it has been turned on. To make things a little more interesting, the moves are randomly used to surprise the operator.</p>
 
 <p>The whole code is quite easy - there's nothing special about it.
-I've created a few bases classes to control every periperal and another class "Moves" to implement the patterns. This is mainly because the basic arduino way of programming leads to lots of code duplication and unreadable code</p>
+I've created a few bases classes to control every peripheral and another class "Moves" to implement the patterns. This is mainly because the basic Arduino way of programming leads to lots of code duplication and unreadable code.</p>
       </section>
 
       <footer>
