@@ -3,7 +3,7 @@ A useless box is basically a machine which turns itself off. However, with a few
 
 ## TL;DR 
 
-A demo video of the box. Because of the randomized behaviour the video doesn't include _all_ different behaviour patterns - there are more...
+A demo video of the box. Because of randomization the video doesn't include _all_ different behavior patterns - there are more...
 
 [![Demo Video](https://img.youtube.com/vi/xstKcBLtHTI/0.jpg)](https://www.youtube.com/watch?v=xstKcBLtHTI
 
